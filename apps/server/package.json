@@ -14,21 +14,23 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
-    "dotenv": "^17.2.1",
-    "zod": "^4.0.2",
-    "express": "^5.1.0",
+    "@octokit/auth-app": "^8.1.0",
     "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
     "drizzle-orm": "^0.44.2",
-    "pg": "^8.14.1"
+    "express": "^5.1.0",
+    "octokit": "^4.0.0",
+    "pg": "^8.14.1",
+    "zod": "^4.0.2"
   },
   "devDependencies": {
-    "tsdown": "^0.15.1",
-    "typescript": "^5.8.2",
-    "@types/express": "^5.0.1",
     "@types/cors": "^2.8.17",
-    "tsx": "^4.19.2",
+    "@types/express": "^5.0.1",
     "@types/node": "^22.13.11",
+    "@types/pg": "^8.11.11",
     "drizzle-kit": "^0.31.2",
-    "@types/pg": "^8.11.11"
+    "tsdown": "^0.15.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.2"
   }
 }
