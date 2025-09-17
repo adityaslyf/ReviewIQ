@@ -14,6 +14,7 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@octokit/auth-app": "^8.1.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",

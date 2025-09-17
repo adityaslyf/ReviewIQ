@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { ExternalLink, GitPullRequest, User, Calendar, Search, Github } from "lucide-react";
+import { ExternalLink, GitPullRequest, User, Calendar, Search, Github, Brain, Wrench, AlertTriangle } from "lucide-react";
 import { useState } from "react";
 
 interface PullRequest {
@@ -15,10 +15,17 @@ interface PullRequest {
   url?: string;
   state?: string;
   body?: string;
+  aiSuggestions?: {
+    id: number;
+    summary: string;
+    refactorSuggestions: string;
+    potentialIssues: string;
+    analysisStatus: string;
+  };
 }
 
 async function fetchPullRequests(): Promise<PullRequest[]> {
-  const response = await fetch("http://localhost:3000/api/pull-requests");
+  const response = await fetch("http://localhost:3000/api/pull-requests-with-ai");
   if (!response.ok) {
     throw new Error("Failed to fetch pull requests");
   }
@@ -39,6 +46,8 @@ export function PRDashboard() {
   const [selectedRepo, setSelectedRepo] = useState<{ owner: string; repo: string } | null>(null);
   const [isFetchingGitHub, setIsFetchingGitHub] = useState(false);
   const [githubPRs, setGithubPRs] = useState<PullRequest[]>([]);
+  const [activeTab, setActiveTab] = useState<"refactor" | "issues">("refactor");
+  const [analyzingPRs, setAnalyzingPRs] = useState<Set<number>>(new Set());
 
   const { data: prs, isLoading, error, refetch } = useQuery({
     queryKey: ["pull-requests"],
@@ -66,6 +75,130 @@ export function PRDashboard() {
     } finally {
       setIsFetchingGitHub(false);
     }
+  };
+
+  const handleAnalyzePR = async (pr: PullRequest) => {
+    if (!selectedRepo) return;
+
+    setAnalyzingPRs(prev => new Set(prev).add(pr.number));
+    
+    try {
+      const response = await fetch("http://localhost:3000/api/analyze-pr", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          owner: selectedRepo.owner,
+          repo: selectedRepo.repo,
+          prNumber: pr.number
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to analyze PR");
+      }
+
+      await response.json();
+      
+      // Refresh the stored PRs to show the new analysis
+      refetch();
+      
+      alert(`AI analysis completed for PR #${pr.number}! Check the "Stored Pull Requests" section to see the suggestions.`);
+      
+    } catch (error) {
+      console.error("Failed to analyze PR:", error);
+      alert(`Failed to analyze PR: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setAnalyzingPRs(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(pr.number);
+        return newSet;
+      });
+    }
+  };
+
+  const renderAIAnalysis = (pr: PullRequest) => {
+    if (!pr.aiSuggestions) {
+      return (
+        <div className="text-sm text-gray-500 italic">
+          AI analysis pending... (Phase 2 feature)
+        </div>
+      );
+    }
+
+    const { aiSuggestions } = pr;
+    
+    return (
+      <div className="space-y-4">
+        {/* AI Summary */}
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Brain className="h-4 w-4 text-blue-500" />
+            <span className="text-sm font-medium">AI Summary</span>
+            <Badge variant="secondary" className="text-xs">
+              {aiSuggestions.analysisStatus}
+            </Badge>
+          </div>
+          <p className="text-sm text-gray-600 bg-blue-50 p-3 rounded">
+            {aiSuggestions.summary}
+          </p>
+        </div>
+
+        {/* Tabs for Refactor Suggestions and Potential Issues */}
+        <div>
+          <div className="flex border-b border-gray-200 mb-3">
+            <button
+              onClick={() => setActiveTab("refactor")}
+              className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === "refactor"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <Wrench className="h-4 w-4 inline mr-1" />
+              Refactor Suggestions
+            </button>
+            <button
+              onClick={() => setActiveTab("issues")}
+              className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === "issues"
+                  ? "border-red-500 text-red-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <AlertTriangle className="h-4 w-4 inline mr-1" />
+              Potential Issues
+            </button>
+          </div>
+
+          <div className="min-h-[100px]">
+            {activeTab === "refactor" ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <Wrench className="h-4 w-4 text-green-500" />
+                  <span className="text-sm font-medium">Refactoring Suggestions</span>
+                </div>
+                <div className="text-sm text-gray-600 bg-green-50 p-3 rounded whitespace-pre-line">
+                  {aiSuggestions.refactorSuggestions}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                  <span className="text-sm font-medium">Potential Issues</span>
+                </div>
+                <div className="text-sm text-gray-600 bg-red-50 p-3 rounded whitespace-pre-line">
+                  {aiSuggestions.potentialIssues}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   if (isLoading) {
@@ -102,19 +235,6 @@ export function PRDashboard() {
             className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded"
           >
             Refresh
-          </button>
-          <button 
-            onClick={async () => {
-              try {
-                await fetch("http://localhost:3000/test-webhook", { method: "POST" });
-                refetch();
-              } catch (error) {
-                console.error("Test webhook failed:", error);
-              }
-            }}
-            className="px-3 py-1 text-sm bg-blue-500 text-white hover:bg-blue-600 rounded"
-          >
-            Test Webhook
           </button>
         </div>
       </div>
@@ -161,10 +281,22 @@ export function PRDashboard() {
       {/* Display GitHub PRs if fetched */}
       {githubPRs.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Github className="h-5 w-5" />
-            GitHub Pull Requests ({githubPRs.length})
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Github className="h-5 w-5" />
+              GitHub Pull Requests ({githubPRs.length})
+            </h3>
+            <button
+              onClick={() => {
+                githubPRs.forEach(pr => handleAnalyzePR(pr));
+              }}
+              disabled={analyzingPRs.size > 0}
+              className="inline-flex items-center gap-2 px-3 py-2 bg-purple-500 text-white text-sm rounded-md hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              <Brain className="h-4 w-4" />
+              Analyze All PRs
+            </button>
+          </div>
           <div className="grid gap-4">
             {githubPRs.map((pr) => (
               <Card key={pr.id} className="hover:shadow-md transition-shadow border-green-200">
@@ -208,7 +340,25 @@ export function PRDashboard() {
                       </div>
                     )}
                     
-                    <div className="flex justify-end">
+                    <div className="flex justify-between items-center">
+                      <button
+                        onClick={() => handleAnalyzePR(pr)}
+                        disabled={analyzingPRs.has(pr.number)}
+                        className="inline-flex items-center gap-2 px-3 py-2 bg-purple-500 text-white text-sm rounded-md hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                      >
+                        {analyzingPRs.has(pr.number) ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            Analyzing...
+                          </>
+                        ) : (
+                          <>
+                            <Brain className="h-4 w-4" />
+                            Get AI Suggestions
+                          </>
+                        )}
+                      </button>
+                      
                       <a
                         href={pr.url || `https://github.com/${pr.repo}/pull/${pr.number}`}
                         target="_blank"
@@ -280,18 +430,7 @@ export function PRDashboard() {
                       <code className="bg-gray-100 px-2 py-1 rounded text-sm">{pr.repo}</code>
                     </div>
                     
-                    {pr.summary ? (
-                      <div>
-                        <span className="text-sm font-medium">AI Summary:</span>
-                        <p className="text-sm text-gray-600 mt-1 bg-blue-50 p-3 rounded">
-                          {pr.summary}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="text-sm text-gray-500 italic">
-                        AI analysis pending... (Phase 2 feature)
-                      </div>
-                    )}
+                        {renderAIAnalysis(pr)}
                     
                     <div className="flex justify-end">
                       <a
