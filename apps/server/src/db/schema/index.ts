@@ -17,3 +17,13 @@ export const pullRequests = pgTable("pull_requests", {
   summary: text("summary"),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+export const aiSuggestions = pgTable("ai_suggestions", {
+  id: serial("id").primaryKey(),
+  pullRequestId: integer("pull_request_id").notNull().references(() => pullRequests.id),
+  summary: text("summary"),
+  refactorSuggestions: text("refactor_suggestions"),
+  potentialIssues: text("potential_issues"),
+  analysisStatus: text("analysis_status").default("pending"), // pending, completed, failed
+  createdAt: timestamp("created_at").defaultNow(),
+});
