@@ -1,14 +1,19 @@
-import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer } from "drizzle-orm/pg-core";
 
-// Simple test table to get started
 export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  id: serial("id").primaryKey(),
+  githubId: text("github_id").notNull().unique(),
+  name: text("name"),
+  avatarUrl: text("avatar_url"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
-// You can add more tables here as your project grows
-// export const posts = pgTable("posts", { ... });
-// export const comments = pgTable("comments", { ... });
+export const pullRequests = pgTable("pull_requests", {
+  id: serial("id").primaryKey(),
+  repo: text("repo").notNull(),
+  number: integer("number").notNull(),
+  title: text("title").notNull(),
+  author: text("author").notNull(),
+  summary: text("summary"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
