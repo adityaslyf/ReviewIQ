@@ -63,7 +63,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const handleTokenUpdate = (event: CustomEvent) => {
       const token = event.detail;
       if (token) {
-        console.log('Received token update event');
         fetchUserData(token);
       }
     };
@@ -90,7 +89,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (response.ok) {
         const userData = await response.json();
         setUser(userData);
-        console.log('Successfully fetched user data:', userData.login);
       } else {
         console.warn('Token is invalid, removing from storage');
         // Token is invalid, remove it

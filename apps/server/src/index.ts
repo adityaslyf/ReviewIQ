@@ -89,73 +89,6 @@ app.get("/", (_req, res) => {
 	res.status(200).send("OK");
 });
 
-// Debug endpoint to check GitHub App status
-app.get("/api/github/status", async (_req, res) => {
-  try {
-    console.log("Checking GitHub App status...");
-    
-    // Check environment variables
-            const envCheck = {
-              GITHUB_APP_ID: process.env.GITHUB_APP_ID ? "✓ Set" : "✗ Missing",
-              GITHUB_PRIVATE_KEY: process.env.GITHUB_PRIVATE_KEY ? "✓ Set" : "✗ Missing", 
-              GITHUB_WEBHOOK_SECRET: process.env.GITHUB_WEBHOOK_SECRET ? "✓ Set" : "✗ Missing",
-              GITHUB_OAUTH_CLIENT_ID: process.env.GITHUB_OAUTH_CLIENT_ID ? "✓ Set" : "✗ Missing",
-              GITHUB_OAUTH_CLIENT_SECRET: process.env.GITHUB_OAUTH_CLIENT_SECRET ? "✓ Set" : "✗ Missing",
-              GEMINI_API_KEY: process.env.GEMINI_API_KEY ? "✓ Set" : "✗ Missing"
-            };
-
-
-    // Try to initialize GitHub service
-    let authStatus = "Not initialized";
-    
-    try {
-      getGitHubService();
-      authStatus = "✓ GitHub service initialized";
-      
-      // Try to get app info (this will test the credentials)
-      const { Octokit } = await import("octokit");
-      const { createAppAuth } = await import("@octokit/auth-app");
-      const formattedPrivateKey = process.env.GITHUB_PRIVATE_KEY!.replace(/\\n/g, '\n');
-      const octokit = new Octokit({
-        authStrategy: createAppAuth,
-        auth: {
-          appId: process.env.GITHUB_APP_ID!,
-          privateKey: formattedPrivateKey,
-        },
-      });
-      
-        const { data: app } = await octokit.rest.apps.getAuthenticated();
-        authStatus = `✓ Authenticated as: ${app?.name || 'Unknown'}`;
-      
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      authStatus = `✗ Authentication failed: ${errorMessage}`;
-    }
-
-        // Check Gemini service status
-        let geminiStatus = "Not initialized";
-        try {
-          const gemini = getGeminiService();
-          geminiStatus = gemini ? "✓ Gemini AI service ready" : "✗ Gemini AI service unavailable";
-        } catch (error: unknown) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          geminiStatus = `✗ Gemini service error: ${errorMessage}`;
-        }
-
-        res.json({
-          environment: envCheck,
-          authentication: authStatus,
-          gemini: geminiStatus,
-          timestamp: new Date().toISOString()
-        });
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    res.status(500).json({ 
-      error: "Failed to check GitHub status", 
-      details: errorMessage
-    });
-  }
-});
 
 // API endpoint to fetch PRs from database
 app.get("/api/pull-requests", async (_req, res) => {
@@ -194,6 +127,108 @@ app.get("/api/pull-requests/:id/ai-suggestions", async (req, res) => {
   }
 });
 
+// Reanalyze an existing PR to get enhanced analysis
+app.post("/api/reanalyze-pr/:prId", async (req, res) => {
+  try {
+    const { db, schema } = await import("./db");
+    const { eq } = await import("drizzle-orm");
+    const { GeminiService } = await import("./services/gemini");
+    const { GitHubService } = await import("./services/github");
+    
+    const prId = parseInt(req.params.prId);
+    
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({ error: "GEMINI_API_KEY not configured" });
+    }
+
+    // Get the PR from database
+    const pr = await db.select().from(schema.pullRequests).where(eq(schema.pullRequests.id, prId)).limit(1);
+    
+    if (!pr.length) {
+      return res.status(404).json({ error: "PR not found" });
+    }
+
+    const prData = pr[0];
+    
+    // Initialize services
+    const githubService = getGitHubService();
+    const geminiService = new GeminiService(process.env.GEMINI_API_KEY);
+    
+    console.log(`Reanalyzing PR #${prData.number} from ${prData.repo}...`);
+    
+    try {
+      // Fetch fresh PR data from GitHub
+      console.log(`Fetching PR data for ${prData.repo}#${prData.number}...`);
+      const [owner, repo] = prData.repo.split('/');
+      const installationId = process.env.GITHUB_INSTALLATION_ID;
+      
+      if (!installationId) {
+        throw new Error("GITHUB_INSTALLATION_ID not configured");
+      }
+      
+      const { pr, diff, files } = await githubService.getPullRequestData(
+        owner, 
+        repo, 
+        prData.number, 
+        parseInt(installationId)
+      );
+      console.log(`Successfully fetched diff (${diff.length} chars) and ${files.length} files`);
+      
+      // Run enhanced AI analysis
+      const analysisResult = await geminiService.analyzePullRequest(
+        pr.title,
+        pr.body || "",
+        diff,
+        files.map(file => ({
+          filename: file.filename,
+          additions: file.additions,
+          deletions: file.deletions,
+          changes: file.changes
+        }))
+      );
+
+      console.log(`Analysis completed for PR #${prData.number}: ${analysisResult.detailedAnalysis ? 'with detailed analysis' : 'basic analysis only'}`);
+
+      // Update existing AI suggestions
+      await db.update(schema.aiSuggestions)
+        .set({
+          summary: analysisResult.summary,
+          refactorSuggestions: analysisResult.refactorSuggestions,
+          potentialIssues: analysisResult.potentialIssues,
+          detailedAnalysis: analysisResult.detailedAnalysis ? JSON.stringify(analysisResult.detailedAnalysis) : null,
+          analysisStatus: "completed"
+        })
+        .where(eq(schema.aiSuggestions.pullRequestId, prId));
+
+      // Update PR summary
+      await db.update(schema.pullRequests)
+        .set({ summary: analysisResult.summary })
+        .where(eq(schema.pullRequests.id, prId));
+
+      res.json({ 
+        success: true, 
+        message: "PR reanalyzed successfully",
+        hasDetailedAnalysis: !!analysisResult.detailedAnalysis
+      });
+    } catch (githubError) {
+      console.error("Error fetching PR data from GitHub:", githubError);
+      const errorMessage = githubError instanceof Error ? githubError.message : 'Unknown error';
+      return res.status(500).json({ 
+        error: "Failed to fetch PR data from GitHub", 
+        details: errorMessage,
+        repo: prData.repo,
+        prNumber: prData.number
+      });
+    }
+  } catch (error: unknown) {
+    console.error("Error reanalyzing PR:", error);
+    res.status(500).json({ 
+      error: "Failed to reanalyze PR", 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    });
+  }
+});
+
 app.get("/api/pull-requests-with-ai", async (_req, res) => {
   try {
     const { db, schema } = await import("./db");
@@ -213,9 +248,23 @@ app.get("/api/pull-requests-with-ai", async (_req, res) => {
     const groupedPRs = prsWithAI.reduce((acc: Record<string, unknown>, row: { pr: any; ai: any }) => {
       const prId = row.pr.id;
       if (!acc[prId]) {
+        // Parse the detailedAnalysis JSON if it exists
+        let detailedAnalysis = null;
+        if (row.ai?.detailedAnalysis) {
+          try {
+            detailedAnalysis = JSON.parse(row.ai.detailedAnalysis);
+          } catch (error) {
+            console.error("Error parsing detailed analysis JSON:", error);
+            detailedAnalysis = null;
+          }
+        }
+
         acc[prId] = {
           ...row.pr,
-          aiSuggestions: row.ai
+          aiSuggestions: row.ai ? {
+            ...row.ai,
+            detailedAnalysis
+          } : null
         };
       }
       return acc;
@@ -313,7 +362,6 @@ app.get("/api/github/pull-requests", async (req, res) => {
   }
 });
 
-
 // Analyze a specific GitHub PR with AI
 app.post("/api/analyze-pr", async (req, res) => {
   try {
@@ -370,12 +418,16 @@ app.post("/api/analyze-pr", async (req, res) => {
 
     // Run AI analysis
     try {
-      
       const analysisResult = await geminiService.analyzePullRequest(
         prData.pr.title,
         prData.pr.body || "",
         prData.diff,
-        prData.files
+        prData.files.map(file => ({
+          filename: file.filename,
+          additions: file.additions,
+          deletions: file.deletions,
+          changes: file.changes
+        }))
       );
 
       // Store AI analysis results
@@ -384,8 +436,11 @@ app.post("/api/analyze-pr", async (req, res) => {
         summary: analysisResult.summary,
         refactorSuggestions: analysisResult.refactorSuggestions,
         potentialIssues: analysisResult.potentialIssues,
+        detailedAnalysis: analysisResult.detailedAnalysis ? JSON.stringify(analysisResult.detailedAnalysis) : null,
         analysisStatus: "completed"
       });
+
+      console.log(`Analysis completed for PR #${prNumber}: ${analysisResult.detailedAnalysis ? 'with detailed analysis' : 'basic analysis only'}`);
 
       // Update the PR summary
       await db.update(schema.pullRequests)
@@ -435,8 +490,6 @@ app.post("/api/auth/github", async (req, res) => {
   try {
     const { code } = req.body;
     
-    console.log("OAuth callback received with code:", code ? "present" : "missing");
-    
     if (!code) {
       return res.status(400).json({ error: "Authorization code is required" });
     }
@@ -447,19 +500,19 @@ app.post("/api/auth/github", async (req, res) => {
       return res.status(500).json({ error: "Server configuration error" });
     }
 
-        // Exchange code for access token
-        const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
-          method: "POST",
-          headers: {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            client_id: process.env.GITHUB_OAUTH_CLIENT_ID,
-            client_secret: process.env.GITHUB_OAUTH_CLIENT_SECRET,
-            code: code,
-          }),
-        });
+    // Exchange code for access token
+    const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        client_id: process.env.GITHUB_OAUTH_CLIENT_ID,
+        client_secret: process.env.GITHUB_OAUTH_CLIENT_SECRET,
+        code: code,
+      }),
+    });
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
@@ -468,10 +521,6 @@ app.post("/api/auth/github", async (req, res) => {
     }
 
     const tokenData = await tokenResponse.json();
-    console.log("Token exchange response:", { 
-      hasAccessToken: !!tokenData.access_token, 
-      error: tokenData.error 
-    });
     
     if (tokenData.error) {
       console.error("OAuth error from GitHub:", tokenData);
@@ -479,7 +528,7 @@ app.post("/api/auth/github", async (req, res) => {
     }
 
     if (!tokenData.access_token) {
-      console.error("No access token in response:", tokenData);
+      console.error("No access token received from GitHub");
       throw new Error("No access token received");
     }
 

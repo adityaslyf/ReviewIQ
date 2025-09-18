@@ -2,11 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Checkbox } from "./ui/checkbox";
-import { ExternalLink, GitPullRequest, User, Calendar, Github, Brain, Wrench, AlertTriangle } from "lucide-react";
+import { ExternalLink, GitPullRequest, User, Calendar, Github, Brain, Wrench, AlertTriangle, CheckCircle, XCircle, Info } from "lucide-react";
 import { useState } from "react";
 import { RepoSelector } from "./repo-selector";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/auth-context";
+import { CodeSuggestionsList } from "./code-suggestion";
+import { AnalysisSections } from "./analysis-sections";
 
 interface PullRequest {
   id: number;
@@ -25,6 +27,22 @@ interface PullRequest {
     refactorSuggestions: string;
     potentialIssues: string;
     analysisStatus: string;
+    detailedAnalysis?: {
+      overview: string;
+      codeSuggestions: Array<{
+        file: string;
+        line?: number;
+        original: string;
+        suggested: string;
+        reason: string;
+        severity: 'HIGH' | 'MEDIUM' | 'LOW';
+        category: string;
+      }>;
+      securityConcerns: string[];
+      performanceImpact: string;
+      testingRecommendations: string[];
+      architecturalNotes: string[];
+    };
   };
 }
 
@@ -60,11 +78,74 @@ async function fetchGitHubPRs(owner: string, repo: string, userToken: string): P
   return response.json();
 }
 
+// Format AI suggestions for better display
+function formatAISuggestions(text: string) {
+  // Split the text into sections based on common patterns
+  const sections = text.split(/(?=\*\*[^*]+\*\*)/g).filter(section => section.trim());
+  
+  return sections.map((section, index) => {
+    const trimmedSection = section.trim();
+    
+    // Check if it's a header (starts with **)
+    if (trimmedSection.startsWith('**') && trimmedSection.includes('**')) {
+      const headerMatch = trimmedSection.match(/^\*\*([^*]+)\*\*/);
+      const header = headerMatch ? headerMatch[1] : '';
+      const content = trimmedSection.replace(/^\*\*[^*]+\*\*:?\s*/, '');
+      
+      // Determine icon and color based on content
+      let icon = <Info className="h-4 w-4" />;
+      let iconColor = "text-blue-500";
+      let bgColor = "bg-blue-50";
+      let borderColor = "border-blue-200";
+      
+      if (header.toLowerCase().includes('high')) {
+        icon = <XCircle className="h-4 w-4" />;
+        iconColor = "text-red-500";
+        bgColor = "bg-red-50";
+        borderColor = "border-red-200";
+      } else if (header.toLowerCase().includes('medium')) {
+        icon = <AlertTriangle className="h-4 w-4" />;
+        iconColor = "text-orange-500";
+        bgColor = "bg-orange-50";
+        borderColor = "border-orange-200";
+      } else if (header.toLowerCase().includes('low')) {
+        icon = <CheckCircle className="h-4 w-4" />;
+        iconColor = "text-green-500";
+        bgColor = "bg-green-50";
+        borderColor = "border-green-200";
+      }
+      
+      return (
+        <div key={index} className={`border ${borderColor} ${bgColor} rounded-lg p-4 mb-3`}>
+          <div className="flex items-start gap-2 mb-2">
+            <span className={iconColor}>{icon}</span>
+            <h4 className="font-semibold text-gray-900">{header}</h4>
+          </div>
+          {content && (
+            <p className="text-sm text-gray-700 leading-relaxed ml-6">
+              {content}
+            </p>
+          )}
+        </div>
+      );
+    } else {
+      // Regular content without header
+      return (
+        <div key={index} className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-3">
+          <p className="text-sm text-gray-700 leading-relaxed">
+            {trimmedSection}
+          </p>
+        </div>
+      );
+    }
+  });
+}
+
 export function PRDashboard() {
   const { isAuthenticated } = useAuth();
   const [selectedRepo, setSelectedRepo] = useState<Repository | null>(null);
   const [githubPRs, setGithubPRs] = useState<PullRequest[]>([]);
-  const [activeTab, setActiveTab] = useState<"refactor" | "issues">("refactor");
+  const [activeTab, setActiveTab] = useState<"refactor" | "issues" | "detailed">("refactor");
   const [analyzingPRs, setAnalyzingPRs] = useState<Set<number>>(new Set());
   const [isFetchingPRs, setIsFetchingPRs] = useState(false);
   const [selectedPRs, setSelectedPRs] = useState<Set<number>>(new Set());
@@ -201,9 +282,14 @@ export function PRDashboard() {
               {aiSuggestions.analysisStatus}
             </Badge>
           </div>
-          <p className="text-sm text-gray-600 bg-blue-50 p-3 rounded">
-            {aiSuggestions.summary}
-          </p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start gap-2">
+              <Info className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-gray-700 leading-relaxed">
+                {aiSuggestions.summary}
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Tabs for Refactor Suggestions and Potential Issues */}
@@ -231,28 +317,83 @@ export function PRDashboard() {
               <AlertTriangle className="h-4 w-4 inline mr-1" />
               Potential Issues
             </button>
+            {aiSuggestions.detailedAnalysis && (
+              <button
+                onClick={() => setActiveTab("detailed")}
+                className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === "detailed"
+                    ? "border-purple-500 text-purple-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <Brain className="h-4 w-4 inline mr-1" />
+                Deep Analysis
+              </button>
+            )}
           </div>
 
           <div className="min-h-[100px]">
             {activeTab === "refactor" ? (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 mb-2">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 mb-3">
                   <Wrench className="h-4 w-4 text-green-500" />
                   <span className="text-sm font-medium">Refactoring Suggestions</span>
                 </div>
-                <div className="text-sm text-gray-600 bg-green-50 p-3 rounded whitespace-pre-line">
-                  {aiSuggestions.refactorSuggestions}
+                <div className="space-y-2">
+                  {formatAISuggestions(aiSuggestions.refactorSuggestions)}
                 </div>
               </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 mb-2">
+            ) : activeTab === "issues" ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 mb-3">
                   <AlertTriangle className="h-4 w-4 text-red-500" />
                   <span className="text-sm font-medium">Potential Issues</span>
                 </div>
-                <div className="text-sm text-gray-600 bg-red-50 p-3 rounded whitespace-pre-line">
-                  {aiSuggestions.potentialIssues}
+                <div className="space-y-2">
+                  {formatAISuggestions(aiSuggestions.potentialIssues)}
                 </div>
+              </div>
+            ) : activeTab === "detailed" && aiSuggestions.detailedAnalysis ? (
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Brain className="h-4 w-4 text-purple-500" />
+                  <span className="text-sm font-medium">CodeRabbit-Style Deep Analysis</span>
+                  <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700">
+                    Enhanced
+                  </Badge>
+                </div>
+
+                {/* Overview */}
+                {aiSuggestions.detailedAnalysis?.overview && (
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-purple-900 mb-2 flex items-center gap-2">
+                      <Info className="h-4 w-4" />
+                      Technical Overview
+                    </h4>
+                    <p className="text-sm text-purple-800 leading-relaxed">
+                      {aiSuggestions.detailedAnalysis?.overview}
+                    </p>
+                  </div>
+                )}
+
+                {/* Code Suggestions with Professional UI */}
+                <CodeSuggestionsList 
+                  suggestions={aiSuggestions.detailedAnalysis?.codeSuggestions || []}
+                  theme="light"
+                />
+
+                {/* Professional Analysis Sections */}
+                <AnalysisSections
+                  securityConcerns={aiSuggestions.detailedAnalysis?.securityConcerns}
+                  performanceImpact={aiSuggestions.detailedAnalysis?.performanceImpact}
+                  testingRecommendations={aiSuggestions.detailedAnalysis?.testingRecommendations}
+                  architecturalNotes={aiSuggestions.detailedAnalysis?.architecturalNotes}
+                />
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <Brain className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Select a tab to view analysis details</p>
               </div>
             )}
           </div>

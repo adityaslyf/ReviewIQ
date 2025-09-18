@@ -24,6 +24,7 @@ export const aiSuggestions = pgTable("ai_suggestions", {
   summary: text("summary"),
   refactorSuggestions: text("refactor_suggestions"),
   potentialIssues: text("potential_issues"),
+  detailedAnalysis: text("detailed_analysis"), // JSON string storing the detailed analysis
   analysisStatus: text("analysis_status").default("pending"), // pending, completed, failed
   createdAt: timestamp("created_at").defaultNow(),
 });

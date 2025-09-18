@@ -89,13 +89,27 @@ export class WebhookService {
     }
   ) {
     try {
+      // Check if Gemini service is available
+      if (!this.geminiService) {
+        console.error("Gemini service not available - skipping AI analysis");
+        await db.insert(schema.aiSuggestions).values({
+          pullRequestId: storedPR.id,
+          summary: "AI analysis unavailable - Gemini service not initialized",
+          refactorSuggestions: "AI analysis service not available",
+          potentialIssues: "AI analysis service not available",
+          analysisStatus: "failed"
+        });
+        return;
+      }
       
-      const analysisResult = await this.geminiService!.analyzePullRequest(
+      const analysisResult = await this.geminiService.analyzePullRequest(
         prData.pr.title,
         prData.pr.body || "",
         prData.diff,
         prData.files
       );
+      
+      console.log(`AI analysis completed for PR: ${analysisResult.detailedAnalysis ? 'detailed' : 'basic'} analysis generated`);
 
       // Store AI analysis results
       await db.insert(schema.aiSuggestions).values({
@@ -103,6 +117,7 @@ export class WebhookService {
         summary: analysisResult.summary,
         refactorSuggestions: analysisResult.refactorSuggestions,
         potentialIssues: analysisResult.potentialIssues,
+        detailedAnalysis: analysisResult.detailedAnalysis ? JSON.stringify(analysisResult.detailedAnalysis) : null,
         analysisStatus: "completed"
       });
 

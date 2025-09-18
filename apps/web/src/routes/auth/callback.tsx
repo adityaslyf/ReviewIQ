@@ -17,7 +17,6 @@ function AuthCallback() {
     const handleCallback = async () => {
       // Prevent multiple executions
       if (hasProcessed) {
-        console.log('Callback already processed, skipping');
         return;
       }
       setHasProcessed(true);
@@ -40,7 +39,6 @@ function AuthCallback() {
           return;
         }
 
-        console.log('Processing OAuth callback with code');
 
         // Exchange code for access token
         const response = await fetch('http://localhost:3000/api/auth/github', {
@@ -60,7 +58,6 @@ function AuthCallback() {
         
         // Store token in localStorage
         localStorage.setItem('github_token', access_token);
-        console.log('Token stored successfully');
         
         // Trigger a custom event to notify other components
         window.dispatchEvent(new CustomEvent('github-token-updated', { detail: access_token }));
@@ -68,7 +65,6 @@ function AuthCallback() {
         // Refresh user data in auth context
         try {
           await refreshUser();
-          console.log('User data refreshed successfully');
           setStatus('success');
           
           // Redirect to main page after a short delay
