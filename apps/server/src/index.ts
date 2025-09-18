@@ -166,15 +166,20 @@ app.post("/api/reanalyze-pr/:prId", async (req, res) => {
         throw new Error("GITHUB_INSTALLATION_ID not configured");
       }
       
-      const { pr, diff, files } = await githubService.getPullRequestData(
+      // Fetch enhanced PR data with comprehensive context
+      const enhancedPRData = await githubService.getEnhancedPRData(
         owner, 
         repo, 
         prData.number, 
         parseInt(installationId)
       );
-      console.log(`Successfully fetched diff (${diff.length} chars) and ${files.length} files`);
       
-      // Run enhanced AI analysis
+      const { pr, diff, files, enhancedContext } = enhancedPRData;
+      // Handle fallback case where enhancedContext might not exist
+      const contextToUse = enhancedContext || null;
+      console.log(`Successfully fetched enhanced PR data: ${diff.length} chars diff, ${files.length} files, enhanced context available`);
+      
+      // Run enhanced AI analysis with full context
       const analysisResult = await geminiService.analyzePullRequest(
         pr.title,
         pr.body || "",
@@ -186,7 +191,8 @@ app.post("/api/reanalyze-pr/:prId", async (req, res) => {
           changes: file.changes
         })),
         enableMultiPass,
-        enableStaticAnalysis
+        enableStaticAnalysis,
+        contextToUse
       );
 
       console.log(`Analysis completed for PR #${prData.number}: ${analysisResult.detailedAnalysis ? 'with detailed analysis' : 'basic analysis only'}`);
@@ -396,8 +402,8 @@ app.post("/api/analyze-pr", async (req, res) => {
       return res.status(404).json({ error: "GitHub App not installed on this repository" });
     }
 
-    // Fetch PR data from GitHub
-    const prData = await githubService.getPullRequestData(owner, repo, prNumber, installationId);
+    // Fetch enhanced PR data from GitHub with comprehensive context
+    const prData = await githubService.getEnhancedPRData(owner, repo, prNumber, installationId);
     
     // Check if PR already exists in database
     const { db, schema } = await import("./db");
@@ -435,7 +441,8 @@ app.post("/api/analyze-pr", async (req, res) => {
               changes: file.changes
             })),
             enableMultiPass,
-            enableStaticAnalysis
+            enableStaticAnalysis,
+            prData.enhancedContext || null
           );
 
           // Store AI analysis results
@@ -621,6 +628,86 @@ app.post("/api/test-multipass/:prId", async (req, res) => {
   }
 });
 
+// Context measurement endpoint
+app.get("/api/context-metrics/:prId", async (req, res) => {
+  try {
+    const { prId } = req.params;
+    const { db, schema } = await import("./db");
+    const { eq } = await import("drizzle-orm");
+
+    // Get the PR from database
+    const pr = await db.select().from(schema.pullRequests).where(eq(schema.pullRequests.id, parseInt(prId))).limit(1);
+    
+    if (pr.length === 0) {
+      return res.status(404).json({ error: "PR not found" });
+    }
+
+    const [owner, repoName] = pr[0].repo.split('/');
+    const githubService = getGitHubService();
+    
+    // Get installation ID
+    const installationId = await githubService.getInstallationId(owner, repoName);
+    if (!installationId) {
+      return res.status(404).json({ error: "GitHub App not installed" });
+    }
+
+    // Fetch enhanced PR data to measure context
+    const enhancedPRData = await githubService.getEnhancedPRData(
+      owner, 
+      repoName, 
+      pr[0].number, 
+      installationId
+    );
+
+    // Build context sections to measure
+    const { GeminiService } = await import("./services/gemini");
+    const geminiService = new GeminiService(process.env.GEMINI_API_KEY!);
+    
+    // Get context sections (this will log metrics)
+    const fileSummary = enhancedPRData.files.map((file: any) => 
+      `- ${file.filename}: +${file.additions} -${file.deletions}`
+    ).join('\n');
+
+    const contextSections = (geminiService as any).buildEnhancedContextSections(enhancedPRData.enhancedContext);
+    const contextMetrics = (geminiService as any).measureContextSize(
+      enhancedPRData.pr.title,
+      enhancedPRData.pr.body || "",
+      enhancedPRData.diff,
+      fileSummary,
+      contextSections
+    );
+
+    // Add enhanced context breakdown
+    const contextBreakdown = {
+      recentCommits: enhancedPRData.enhancedContext?.recentCommits?.length || 0,
+      branchContext: enhancedPRData.enhancedContext?.branchContext ? 'Available' : 'Not available',
+      linkedIssues: enhancedPRData.enhancedContext?.linkedIssues?.length || 0,
+      repoStructure: Object.keys(enhancedPRData.enhancedContext?.repoStructure || {}).length,
+      cicdChecks: enhancedPRData.enhancedContext?.cicdContext?.summary?.totalChecks || 0,
+      reviewComments: (enhancedPRData.enhancedContext?.reviewComments?.reviews?.length || 0) + 
+                     (enhancedPRData.enhancedContext?.reviewComments?.comments?.length || 0)
+    };
+
+    res.json({
+      prInfo: {
+        id: pr[0].id,
+        number: pr[0].number,
+        title: pr[0].title,
+        repo: pr[0].repo
+      },
+      contextMetrics,
+      contextBreakdown,
+      enhancedContextAvailable: !!enhancedPRData.enhancedContext
+    });
+
+  } catch (error) {
+    console.error("Error getting context metrics:", error);
+    res.status(500).json({ 
+      error: "Failed to get context metrics", 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    });
+  }
+});
 
 app.listen(port, () => {
 	console.log(`Server is running on port ${port}`);

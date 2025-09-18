@@ -100,7 +100,8 @@ export class GeminiService {
     diff: string,
     changedFiles: Array<{ filename: string; additions: number; deletions: number; changes: number }>,
     enableMultiPass: boolean = false,
-    enableStaticAnalysis: boolean = false
+    enableStaticAnalysis: boolean = false,
+    enhancedContext?: any
   ): Promise<AIAnalysisResult> {
     try {
       if (enableStaticAnalysis) {
@@ -108,7 +109,7 @@ export class GeminiService {
         return await this.runStaticEnhancedAnalysis(prTitle, prDescription, diff, changedFiles);
       } else if (enableMultiPass) {
         // Simple, focused code analysis for better recommendations
-        const prompt = this.buildFocusedCodePrompt(prTitle, prDescription, diff, changedFiles);
+        const prompt = this.buildFocusedCodePrompt(prTitle, prDescription, diff, changedFiles, enhancedContext);
         
         const result = await this.model.generateContent(prompt);
         const response = await result.response;
@@ -267,11 +268,19 @@ Respond with ONLY valid JSON:
     prTitle: string,
     prDescription: string,
     diff: string,
-    changedFiles: Array<{ filename: string; additions: number; deletions: number; changes: number }>
+    changedFiles: Array<{ filename: string; additions: number; deletions: number; changes: number }>,
+    enhancedContext?: any
   ): string {
     const fileSummary = changedFiles.map(file => 
       `- ${file.filename}: +${file.additions} -${file.deletions}`
     ).join('\n');
+
+    // Build enhanced context sections
+    const contextSections = this.buildEnhancedContextSections(enhancedContext);
+    
+    // Measure context size
+    const contextMetrics = this.measureContextSize(prTitle, prDescription, diff, fileSummary, contextSections);
+    console.log(`📊 Context Metrics: ${JSON.stringify(contextMetrics, null, 2)}`);
 
     return `You are a **senior software engineer** performing a **code review** on a GitHub Pull Request. 
 Act like a highly experienced reviewer: focus on correctness, maintainability, performance, scalability, security, and best practices. 
@@ -282,6 +291,9 @@ Be strict but constructive, and provide actionable, detailed insights.
 - **Title:** ${prTitle}
 - **Description:** ${prDescription || 'No description provided'}
 - **Changed Files:** ${fileSummary}  
+
+${contextSections}
+
 - **Diff:**  
 \`\`\`diff
 ${diff}
@@ -331,6 +343,140 @@ Return the result in this JSON format:
   ],
   "finalVerdict": "safe|minor_changes|major_fixes"
 }`;
+  }
+
+  private buildEnhancedContextSections(enhancedContext?: any): string {
+    if (!enhancedContext) return "";
+
+    let contextSections = "";
+
+    // 1. Repository History Context
+    if (enhancedContext.recentCommits?.length > 0) {
+      contextSections += `
+## Repository History (Recent Changes)
+${enhancedContext.recentCommits.map((fileCommits: any) => 
+  `**${fileCommits.file}:**\n${fileCommits.recentCommits.map((commit: any) => 
+    `  - ${commit.sha}: ${commit.message} (${commit.author})`
+  ).join('\n')}`
+).join('\n\n')}`;
+    }
+
+    // 2. Branch Context
+    if (enhancedContext.branchContext) {
+      const branch = enhancedContext.branchContext;
+      contextSections += `
+## Branch Context
+- **Base Branch:** ${branch.baseBranch} → **Head Branch:** ${branch.headBranch}
+- **Mergeable:** ${branch.mergeable ? '✅ Yes' : '❌ No'} (${branch.mergeableState})
+- **Branch Status:** ${branch.aheadBy} commits ahead, ${branch.behindBy} commits behind
+${branch.conflictFiles ? `- **⚠️ Conflicts:** ${branch.conflictFiles}` : ''}`;
+    }
+
+    // 3. Linked Issues Context
+    if (enhancedContext.linkedIssues?.length > 0) {
+      contextSections += `
+## Linked Issues
+${enhancedContext.linkedIssues.map((issue: any) => 
+  `**Issue #${issue.number}** (${issue.state}): ${issue.title}\n${issue.body ? `Description: ${issue.body.substring(0, 200)}...` : ''}\nLabels: ${issue.labels.join(', ')}`
+).join('\n\n')}`;
+    }
+
+    // 4. Repository Structure Context
+    if (enhancedContext.repoStructure && Object.keys(enhancedContext.repoStructure).length > 0) {
+      contextSections += `
+## Repository Structure`;
+      
+      if (enhancedContext.repoStructure.dependencies) {
+        const deps = enhancedContext.repoStructure.dependencies;
+        contextSections += `
+**Dependencies:** ${deps.dependencies.slice(0, 10).join(', ')}${deps.dependencies.length > 10 ? '...' : ''}
+**Dev Dependencies:** ${deps.devDependencies.slice(0, 10).join(', ')}${deps.devDependencies.length > 10 ? '...' : ''}
+**Scripts:** ${deps.scripts.join(', ')}`;
+      }
+
+      Object.keys(enhancedContext.repoStructure).forEach(configFile => {
+        if (configFile !== 'dependencies') {
+          contextSections += `
+**${configFile}:** Configuration detected`;
+        }
+      });
+    }
+
+    // 5. CI/CD Context
+    if (enhancedContext.cicdContext) {
+      const ci = enhancedContext.cicdContext;
+      contextSections += `
+## CI/CD Status
+- **Total Checks:** ${ci.summary.totalChecks}
+- **✅ Passing:** ${ci.summary.passing} | **❌ Failing:** ${ci.summary.failing}
+${ci.checkRuns.length > 0 ? `**Recent Checks:** ${ci.checkRuns.slice(0, 3).map((run: any) => `${run.name} (${run.conclusion})`).join(', ')}` : ''}`;
+    }
+
+    // 6. Review Comments Context
+    if (enhancedContext.reviewComments?.reviews?.length > 0 || enhancedContext.reviewComments?.comments?.length > 0) {
+      contextSections += `
+## Existing Review Context`;
+      
+      if (enhancedContext.reviewComments.reviews.length > 0) {
+        contextSections += `
+**Previous Reviews:** ${enhancedContext.reviewComments.reviews.map((review: any) => 
+          `${review.user} (${review.state}): ${review.body.substring(0, 100)}...`
+        ).join(' | ')}`;
+      }
+      
+      if (enhancedContext.reviewComments.comments.length > 0) {
+        contextSections += `
+**Review Comments:** ${enhancedContext.reviewComments.comments.length} existing comments on specific lines`;
+      }
+    }
+
+    return contextSections;
+  }
+
+  private measureContextSize(
+    prTitle: string, 
+    prDescription: string, 
+    diff: string, 
+    fileSummary: string, 
+    contextSections: string
+  ) {
+    // Rough token estimation (1 token ≈ 4 characters)
+    const estimateTokens = (text: string) => Math.ceil(text.length / 4);
+
+    const metrics = {
+      prTitle: {
+        chars: prTitle.length,
+        tokens: estimateTokens(prTitle)
+      },
+      prDescription: {
+        chars: prDescription.length,
+        tokens: estimateTokens(prDescription)
+      },
+      diff: {
+        chars: diff.length,
+        tokens: estimateTokens(diff),
+        lines: diff.split('\n').length
+      },
+      fileSummary: {
+        chars: fileSummary.length,
+        tokens: estimateTokens(fileSummary)
+      },
+      enhancedContext: {
+        chars: contextSections.length,
+        tokens: estimateTokens(contextSections),
+        sections: contextSections.split('##').length - 1
+      },
+      total: {
+        chars: prTitle.length + prDescription.length + diff.length + fileSummary.length + contextSections.length,
+        estimatedTokens: estimateTokens(prTitle + prDescription + diff + fileSummary + contextSections),
+        geminiLimit: 1000000, // Gemini Pro context limit
+        utilizationPercent: 0
+      }
+    };
+
+    metrics.total.utilizationPercent = Math.round((metrics.total.estimatedTokens / metrics.total.geminiLimit) * 100 * 100) / 100;
+
+    return metrics;
   }
 
   private parseCodeFocusedResponse(
