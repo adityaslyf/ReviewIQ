@@ -435,8 +435,16 @@ app.post("/api/auth/github", async (req, res) => {
   try {
     const { code } = req.body;
     
+    console.log("OAuth callback received with code:", code ? "present" : "missing");
+    
     if (!code) {
       return res.status(400).json({ error: "Authorization code is required" });
+    }
+
+    // Check environment variables
+    if (!process.env.GITHUB_OAUTH_CLIENT_ID || !process.env.GITHUB_OAUTH_CLIENT_SECRET) {
+      console.error("Missing GitHub OAuth environment variables");
+      return res.status(500).json({ error: "Server configuration error" });
     }
 
         // Exchange code for access token
@@ -454,13 +462,25 @@ app.post("/api/auth/github", async (req, res) => {
         });
 
     if (!tokenResponse.ok) {
-      throw new Error("Failed to exchange code for token");
+      const errorText = await tokenResponse.text();
+      console.error("GitHub token exchange failed:", tokenResponse.status, errorText);
+      throw new Error(`Failed to exchange code for token: ${tokenResponse.status}`);
     }
 
     const tokenData = await tokenResponse.json();
+    console.log("Token exchange response:", { 
+      hasAccessToken: !!tokenData.access_token, 
+      error: tokenData.error 
+    });
     
     if (tokenData.error) {
+      console.error("OAuth error from GitHub:", tokenData);
       throw new Error(tokenData.error_description || "OAuth error");
+    }
+
+    if (!tokenData.access_token) {
+      console.error("No access token in response:", tokenData);
+      throw new Error("No access token received");
     }
 
     res.json({ access_token: tokenData.access_token });

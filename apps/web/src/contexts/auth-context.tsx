@@ -14,6 +14,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: () => void;
   logout: () => void;
+  refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -43,9 +44,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } else {
       setIsLoading(false);
     }
+
+    // Listen for storage changes (when token is added/removed in other tabs or by auth callback)
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'github_token') {
+        if (event.newValue) {
+          // Token was added
+          fetchUserData(event.newValue);
+        } else {
+          // Token was removed
+          setUser(null);
+          setIsLoading(false);
+        }
+      }
+    };
+
+    // Listen for custom token update events (from auth callback)
+    const handleTokenUpdate = (event: CustomEvent) => {
+      const token = event.detail;
+      if (token) {
+        console.log('Received token update event');
+        fetchUserData(token);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('github-token-updated', handleTokenUpdate as EventListener);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('github-token-updated', handleTokenUpdate as EventListener);
+    };
   }, []);
 
   const fetchUserData = async (token: string) => {
+    setIsLoading(true);
     try {
       const response = await fetch('https://api.github.com/user', {
         headers: {
@@ -57,13 +90,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (response.ok) {
         const userData = await response.json();
         setUser(userData);
+        console.log('Successfully fetched user data:', userData.login);
       } else {
+        console.warn('Token is invalid, removing from storage');
         // Token is invalid, remove it
         localStorage.removeItem('github_token');
+        setUser(null);
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
-      localStorage.removeItem('github_token');
+      // Don't remove token on network errors, just log the error
+      setUser(null);
     } finally {
       setIsLoading(false);
     }
@@ -89,11 +126,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem('github_token');
   };
 
+  const refreshUser = async () => {
+    const token = localStorage.getItem('github_token');
+    if (token) {
+      try {
+        await fetchUserData(token);
+      } catch (error) {
+        console.error('Error refreshing user data:', error);
+        // If refresh fails, remove the invalid token
+        localStorage.removeItem('github_token');
+        setUser(null);
+        throw error;
+      }
+    }
+  };
+
   const value: AuthContextType = {
     user,
     isLoading,
     login,
     logout,
+    refreshUser,
     isAuthenticated: !!user,
   };
 

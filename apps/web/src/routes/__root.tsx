@@ -2,6 +2,7 @@ import Header from "@/components/header";
 import Loader from "@/components/loader";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from "@/contexts/auth-context";
 import {
 	HeadContent,
 	Outlet,
@@ -48,11 +49,13 @@ function RootComponent() {
 				disableTransitionOnChange
 				storageKey="vite-ui-theme"
 			>
-				<div className="grid grid-rows-[auto_1fr] h-svh">
-					<Header />
-					{isFetching ? <Loader /> : <Outlet />}
-				</div>
-				<Toaster richColors />
+				<AuthProvider>
+					<div className="grid grid-rows-[auto_1fr] h-svh">
+						<Header />
+						{isFetching ? <Loader /> : <Outlet />}
+					</div>
+					<Toaster richColors />
+				</AuthProvider>
 			</ThemeProvider>
 			<TanStackRouterDevtools position="bottom-left" />
 		</>

@@ -6,6 +6,7 @@ import { ExternalLink, GitPullRequest, User, Calendar, Github, Brain, Wrench, Al
 import { useState } from "react";
 import { RepoSelector } from "./repo-selector";
 import { toast } from "sonner";
+import { useAuth } from "../contexts/auth-context";
 
 interface PullRequest {
   id: number;
@@ -60,6 +61,7 @@ async function fetchGitHubPRs(owner: string, repo: string, userToken: string): P
 }
 
 export function PRDashboard() {
+  const { isAuthenticated } = useAuth();
   const [selectedRepo, setSelectedRepo] = useState<Repository | null>(null);
   const [githubPRs, setGithubPRs] = useState<PullRequest[]>([]);
   const [activeTab, setActiveTab] = useState<"refactor" | "issues">("refactor");
@@ -72,7 +74,9 @@ export function PRDashboard() {
     queryKey: ["pull-requests"],
     queryFn: fetchPullRequests,
     refetchInterval: 5000, // Refetch every 5 seconds
+    enabled: isAuthenticated, // Only run query when authenticated
   });
+
 
   const handleRepoSelect = (repo: Repository) => {
     setSelectedRepo(repo);
@@ -85,7 +89,8 @@ export function PRDashboard() {
     try {
       const token = localStorage.getItem('github_token');
       if (!token) {
-        throw new Error('No GitHub token found');
+        toast.error('Please sign in again to access your repositories');
+        return;
       }
 
       const [owner, repoName] = repo.full_name.split('/');
@@ -109,7 +114,8 @@ export function PRDashboard() {
     try {
       const token = localStorage.getItem('github_token');
       if (!token) {
-        throw new Error('No GitHub token found');
+        toast.error('Please sign in again to analyze pull requests');
+        return;
       }
 
       const [owner, repoName] = selectedRepo.full_name.split('/');

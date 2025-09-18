@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PRDashboard } from "../components/pr-dashboard";
-import { AuthProvider, useAuth } from "../contexts/auth-context";
-import { UserProfile, LoginButton } from "../components/user-profile";
+import { useAuth } from "../contexts/auth-context";
 
 export const Route = createFileRoute("/")({
 	component: HomeComponent,
@@ -16,11 +15,9 @@ const queryClient = new QueryClient();
 
 function HomeComponent() {
 	return (
-		<AuthProvider>
-			<QueryClientProvider client={queryClient}>
-				<DashboardContent />
-			</QueryClientProvider>
-		</AuthProvider>
+		<QueryClientProvider client={queryClient}>
+			<DashboardContent />
+		</QueryClientProvider>
 	);
 }
 
@@ -29,7 +26,7 @@ function DashboardContent() {
 
 	if (isLoading) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-gray-50">
+			<div className="min-h-screen flex items-center justify-center">
 				<div className="text-center">
 					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
 					<p className="text-gray-600">Loading...</p>
@@ -39,32 +36,7 @@ function DashboardContent() {
 	}
 
 	if (!isAuthenticated) {
-		return (
-			<div className="min-h-screen flex items-center justify-center bg-gray-50">
-				<div className="text-center max-w-md mx-auto p-8">
-					<div className="mb-8">
-						<pre className="overflow-x-auto font-mono text-sm text-center">{TITLE_TEXT}</pre>
-						<p className="text-center text-gray-600 mt-4">
-							Smart PR Review - AI-powered GitHub bot for intelligent code analysis
-						</p>
-					</div>
-					
-					<div className="bg-white rounded-lg shadow-lg p-8">
-						<h2 className="text-2xl font-bold text-gray-900 mb-4">Welcome to ReviewIQ</h2>
-						<p className="text-gray-600 mb-6">
-							Sign in with GitHub to access your repositories and analyze pull requests with AI-powered insights.
-						</p>
-						<LoginButton />
-					</div>
-					
-					<div className="mt-8 text-sm text-gray-500">
-						<p>🔒 Secure authentication with GitHub OAuth</p>
-						<p>🤖 AI-powered PR analysis and suggestions</p>
-						<p>📊 Comprehensive code review insights</p>
-					</div>
-				</div>
-			</div>
-		);
+		return null;
 	}
 
 	return (
@@ -76,9 +48,6 @@ function DashboardContent() {
 						<p className="text-center text-gray-600 mt-4">
 							Smart PR Review - AI-powered GitHub bot for intelligent code analysis
 						</p>
-					</div>
-					<div className="flex items-center gap-4">
-						<UserProfile />
 					</div>
 				</div>
 			</div>

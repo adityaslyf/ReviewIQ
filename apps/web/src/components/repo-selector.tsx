@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Search, Github, Lock, Globe, GitPullRequest } from 'lucide-react';
+import { toast } from 'sonner';
+import { useAuth } from '../contexts/auth-context';
 
 interface Repository {
   id: number;
@@ -22,21 +24,27 @@ interface RepoSelectorProps {
 }
 
 export function RepoSelector({ onRepoSelect, selectedRepo, onFetchPRs, isFetchingPRs = false }: RepoSelectorProps) {
+  const { isAuthenticated, user } = useAuth();
   const [repos, setRepos] = useState<Repository[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPrivate, setFilterPrivate] = useState<'all' | 'public' | 'private'>('all');
 
   useEffect(() => {
-    fetchUserRepos();
-  }, []);
+    if (isAuthenticated && user) {
+      fetchUserRepos();
+    }
+  }, [isAuthenticated, user]);
 
   const fetchUserRepos = async () => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('github_token');
       if (!token) {
-        throw new Error('No GitHub token found');
+        console.warn('No GitHub token found when trying to fetch repositories');
+        toast.error('Please sign in to view your repositories');
+        setIsLoading(false);
+        return;
       }
 
       const response = await fetch('https://api.github.com/user/repos?per_page=100&sort=updated', {
@@ -54,7 +62,7 @@ export function RepoSelector({ onRepoSelect, selectedRepo, onFetchPRs, isFetchin
       setRepos(reposData);
     } catch (error) {
       console.error('Error fetching repositories:', error);
-      alert(`Failed to fetch repositories: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast.error(`Failed to fetch repositories: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }

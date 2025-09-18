@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useAuth } from "../../contexts/auth-context";
 
 export const Route = createFileRoute("/auth/callback")({
   component: AuthCallback,
@@ -7,27 +8,39 @@ export const Route = createFileRoute("/auth/callback")({
 
 function AuthCallback() {
   const navigate = useNavigate();
+  const { refreshUser } = useAuth();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [error, setError] = useState<string>('');
+  const [hasProcessed, setHasProcessed] = useState(false);
 
   useEffect(() => {
     const handleCallback = async () => {
+      // Prevent multiple executions
+      if (hasProcessed) {
+        console.log('Callback already processed, skipping');
+        return;
+      }
+      setHasProcessed(true);
       try {
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
         const error = urlParams.get('error');
 
         if (error) {
+          console.error('GitHub OAuth error from URL:', error);
           setError(`GitHub authentication failed: ${error}`);
           setStatus('error');
           return;
         }
 
         if (!code) {
+          console.error('No authorization code in URL params');
           setError('No authorization code received from GitHub');
           setStatus('error');
           return;
         }
+
+        console.log('Processing OAuth callback with code');
 
         // Exchange code for access token
         const response = await fetch('http://localhost:3000/api/auth/github', {
@@ -47,13 +60,29 @@ function AuthCallback() {
         
         // Store token in localStorage
         localStorage.setItem('github_token', access_token);
+        console.log('Token stored successfully');
         
-        setStatus('success');
+        // Trigger a custom event to notify other components
+        window.dispatchEvent(new CustomEvent('github-token-updated', { detail: access_token }));
         
-        // Redirect to main page after a short delay
-        setTimeout(() => {
-          navigate({ to: '/' });
-        }, 2000);
+        // Refresh user data in auth context
+        try {
+          await refreshUser();
+          console.log('User data refreshed successfully');
+          setStatus('success');
+          
+          // Redirect to main page after a short delay
+          setTimeout(() => {
+            navigate({ to: '/' });
+          }, 300);
+        } catch (refreshError) {
+          console.error('Failed to refresh user data:', refreshError);
+          // Even if refresh fails, we still have the token, so proceed
+          setStatus('success');
+          setTimeout(() => {
+            navigate({ to: '/' });
+          }, 300);
+        }
 
       } catch (err) {
         console.error('Authentication error:', err);
@@ -63,7 +92,7 @@ function AuthCallback() {
     };
 
     handleCallback();
-  }, [navigate]);
+  }, [navigate, refreshUser, hasProcessed]);
 
   if (status === 'loading') {
     return (
