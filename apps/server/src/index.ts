@@ -133,9 +133,9 @@ app.post("/api/reanalyze-pr/:prId", async (req, res) => {
     const { db, schema } = await import("./db");
     const { eq } = await import("drizzle-orm");
     const { GeminiService } = await import("./services/gemini");
-    const { GitHubService } = await import("./services/github");
     
     const prId = parseInt(req.params.prId);
+    const { enableMultiPass = false } = req.body;
     
     if (!process.env.GEMINI_API_KEY) {
       return res.status(500).json({ error: "GEMINI_API_KEY not configured" });
@@ -184,7 +184,8 @@ app.post("/api/reanalyze-pr/:prId", async (req, res) => {
           additions: file.additions,
           deletions: file.deletions,
           changes: file.changes
-        }))
+        })),
+        enableMultiPass
       );
 
       console.log(`Analysis completed for PR #${prData.number}: ${analysisResult.detailedAnalysis ? 'with detailed analysis' : 'basic analysis only'}`);
@@ -196,6 +197,8 @@ app.post("/api/reanalyze-pr/:prId", async (req, res) => {
           refactorSuggestions: analysisResult.refactorSuggestions,
           potentialIssues: analysisResult.potentialIssues,
           detailedAnalysis: analysisResult.detailedAnalysis ? JSON.stringify(analysisResult.detailedAnalysis) : null,
+          multiPassAnalysis: analysisResult.multiPassAnalysis ? JSON.stringify(analysisResult.multiPassAnalysis) : null,
+          analysisMode: enableMultiPass ? "multi-pass" : "single-pass",
           analysisStatus: "completed"
         })
         .where(eq(schema.aiSuggestions.pullRequestId, prId));
@@ -248,8 +251,10 @@ app.get("/api/pull-requests-with-ai", async (_req, res) => {
     const groupedPRs = prsWithAI.reduce((acc: Record<string, unknown>, row: { pr: any; ai: any }) => {
       const prId = row.pr.id;
       if (!acc[prId]) {
-        // Parse the detailedAnalysis JSON if it exists
+        // Parse the detailedAnalysis and multiPassAnalysis JSON if they exist
         let detailedAnalysis = null;
+        let multiPassAnalysis = null;
+        
         if (row.ai?.detailedAnalysis) {
           try {
             detailedAnalysis = JSON.parse(row.ai.detailedAnalysis);
@@ -259,11 +264,21 @@ app.get("/api/pull-requests-with-ai", async (_req, res) => {
           }
         }
 
+        if (row.ai?.multiPassAnalysis) {
+          try {
+            multiPassAnalysis = JSON.parse(row.ai.multiPassAnalysis);
+          } catch (error) {
+            console.error("Error parsing multi-pass analysis JSON:", error);
+            multiPassAnalysis = null;
+          }
+        }
+
         acc[prId] = {
           ...row.pr,
           aiSuggestions: row.ai ? {
             ...row.ai,
-            detailedAnalysis
+            detailedAnalysis,
+            multiPassAnalysis
           } : null
         };
       }
@@ -365,7 +380,7 @@ app.get("/api/github/pull-requests", async (req, res) => {
 // Analyze a specific GitHub PR with AI
 app.post("/api/analyze-pr", async (req, res) => {
   try {
-    const { owner, repo, prNumber, userToken } = req.body;
+    const { owner, repo, prNumber, userToken, enableMultiPass = false } = req.body;
     
     if (!owner || !repo || !prNumber || !userToken) {
       return res.status(400).json({ error: "Owner, repo, prNumber, and userToken are required" });
@@ -416,29 +431,32 @@ app.post("/api/analyze-pr", async (req, res) => {
       storedPR = newPR;
     }
 
-    // Run AI analysis
-    try {
-      const analysisResult = await geminiService.analyzePullRequest(
-        prData.pr.title,
-        prData.pr.body || "",
-        prData.diff,
-        prData.files.map(file => ({
-          filename: file.filename,
-          additions: file.additions,
-          deletions: file.deletions,
-          changes: file.changes
-        }))
-      );
+        // Run AI analysis
+        try {
+          const analysisResult = await geminiService.analyzePullRequest(
+            prData.pr.title,
+            prData.pr.body || "",
+            prData.diff,
+            prData.files.map(file => ({
+              filename: file.filename,
+              additions: file.additions,
+              deletions: file.deletions,
+              changes: file.changes
+            })),
+            enableMultiPass
+          );
 
-      // Store AI analysis results
-      await db.insert(schema.aiSuggestions).values({
-        pullRequestId: storedPR.id,
-        summary: analysisResult.summary,
-        refactorSuggestions: analysisResult.refactorSuggestions,
-        potentialIssues: analysisResult.potentialIssues,
-        detailedAnalysis: analysisResult.detailedAnalysis ? JSON.stringify(analysisResult.detailedAnalysis) : null,
-        analysisStatus: "completed"
-      });
+          // Store AI analysis results
+          await db.insert(schema.aiSuggestions).values({
+            pullRequestId: storedPR.id,
+            summary: analysisResult.summary,
+            refactorSuggestions: analysisResult.refactorSuggestions,
+            potentialIssues: analysisResult.potentialIssues,
+            detailedAnalysis: analysisResult.detailedAnalysis ? JSON.stringify(analysisResult.detailedAnalysis) : null,
+            multiPassAnalysis: analysisResult.multiPassAnalysis ? JSON.stringify(analysisResult.multiPassAnalysis) : null,
+            analysisMode: enableMultiPass ? "multi-pass" : "single-pass",
+            analysisStatus: "completed"
+          });
 
       console.log(`Analysis completed for PR #${prNumber}: ${analysisResult.detailedAnalysis ? 'with detailed analysis' : 'basic analysis only'}`);
 
@@ -577,6 +595,41 @@ app.post("/webhook", async (req, res) => {
 });
 
 const port = process.env.PORT || 3000;
+// Test endpoint for multi-pass analysis
+app.post("/api/test-multipass/:prId", async (req, res) => {
+  try {
+    const { prId } = req.params;
+    
+    // Trigger reanalysis with multi-pass enabled
+    const response = await fetch(`http://localhost:${port}/api/reanalyze-pr/${prId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ enableMultiPass: true })
+    });
+
+    const result = await response.json();
+    
+    if (response.ok) {
+      res.json({ 
+        success: true, 
+        message: "Multi-pass analysis completed", 
+        ...result 
+      });
+    } else {
+      res.status(response.status).json(result);
+    }
+  } catch (error) {
+    console.error("Error testing multi-pass analysis:", error);
+    res.status(500).json({ 
+      error: "Failed to test multi-pass analysis", 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    });
+  }
+});
+
 app.listen(port, () => {
 	console.log(`Server is running on port ${port}`);
+  console.log(`🚀 Multi-pass analysis available! Use enableMultiPass=true in requests`);
 });

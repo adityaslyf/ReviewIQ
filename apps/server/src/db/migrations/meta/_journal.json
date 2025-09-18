@@ -15,6 +15,13 @@
       "when": 1758205161921,
       "tag": "0001_tense_dracula",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1758225178488,
+      "tag": "0002_careful_norman_osborn",
+      "breakpoints": true
     }
   ]
 }
