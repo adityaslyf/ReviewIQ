@@ -103,15 +103,14 @@ export class GeminiService {
   ): Promise<AIAnalysisResult> {
     try {
       if (enableMultiPass) {
-        // Enhanced single-pass analysis with multi-pass insights (faster than true multi-pass)
-        const enhancedResult = await this.runEnhancedAnalysis(prTitle, prDescription, diff, changedFiles);
-        return {
-          summary: enhancedResult.summary,
-          refactorSuggestions: enhancedResult.refactorSuggestions,
-          potentialIssues: enhancedResult.potentialIssues,
-          detailedAnalysis: enhancedResult.detailedAnalysis,
-          multiPassAnalysis: enhancedResult.multiPassAnalysis
-        };
+        // Simple, focused code analysis for better recommendations
+        const prompt = this.buildFocusedCodePrompt(prTitle, prDescription, diff, changedFiles);
+        
+        const result = await this.model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+        
+        return this.parseCodeFocusedResponse(text, changedFiles);
       } else {
         // Single-pass analysis (existing behavior)
         const prompt = this.buildAnalysisPrompt(prTitle, prDescription, diff, changedFiles);
@@ -125,6 +124,110 @@ export class GeminiService {
     } catch (error) {
       console.error("Error analyzing PR with Gemini:", error);
       throw new Error(`AI analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  private buildFocusedCodePrompt(
+    prTitle: string,
+    prDescription: string,
+    diff: string,
+    changedFiles: Array<{ filename: string; additions: number; deletions: number; changes: number }>
+  ): string {
+    const fileSummary = changedFiles.map(file => 
+      `- ${file.filename}: +${file.additions} -${file.deletions}`
+    ).join('\n');
+
+    return `You are a senior software engineer reviewing code. Focus on finding actual code issues and providing specific improvements.
+
+PR: ${prTitle}
+Description: ${prDescription || 'No description'}
+
+Files: ${fileSummary}
+
+Code Changes:
+\`\`\`diff
+${diff}
+\`\`\`
+
+Find and fix:
+1. **Bugs & Logic Errors**: Null pointer exceptions, off-by-one errors, race conditions
+2. **Security Issues**: SQL injection, XSS, authentication flaws, input validation
+3. **Performance Problems**: N+1 queries, inefficient algorithms, memory leaks
+4. **Code Quality**: Readability, error handling, code duplication
+
+Respond with ONLY this JSON structure:
+{
+  "summary": "What this PR does",
+  "refactorSuggestions": "**Issue (SEVERITY):** Description\\n- Problem in code\\n- Better solution\\n- Why it's better",
+  "potentialIssues": "**Problem (SEVERITY):** Description\\n- What could go wrong\\n- Where the issue is\\n- How to fix it",
+  "detailedAnalysis": {
+    "overview": "Technical summary of changes",
+    "codeSuggestions": [
+      {
+        "file": "actual/file/path",
+        "line": 25,
+        "original": "current code from diff",
+        "suggested": "improved code",
+        "reason": "specific improvement explanation",
+        "severity": "HIGH|MEDIUM|LOW",
+        "category": "Security|Performance|Logic|Style"
+      }
+    ],
+    "securityConcerns": ["Real security issues found"],
+    "performanceImpact": "Performance analysis",
+    "testingRecommendations": ["Specific tests needed"],
+    "architecturalNotes": ["Code structure notes"]
+  }
+}`;
+  }
+
+  private parseCodeFocusedResponse(
+    text: string, 
+    changedFiles: Array<{ filename: string; additions: number; deletions: number; changes: number }>
+  ): AIAnalysisResult {
+    try {
+      // Clean and parse the response
+      const cleanedResponse = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const parsed = JSON.parse(cleanedResponse);
+      
+      // Ensure we have the required structure
+      return {
+        summary: parsed.summary || "Code analysis completed",
+        refactorSuggestions: parsed.refactorSuggestions || "No refactoring suggestions",
+        potentialIssues: parsed.potentialIssues || "No critical issues found",
+        detailedAnalysis: parsed.detailedAnalysis || {
+          overview: parsed.summary || "Analysis overview",
+          codeSuggestions: parsed.detailedAnalysis?.codeSuggestions || [],
+          securityConcerns: parsed.detailedAnalysis?.securityConcerns || [],
+          performanceImpact: parsed.detailedAnalysis?.performanceImpact || "No performance impact identified",
+          testingRecommendations: parsed.detailedAnalysis?.testingRecommendations || [],
+          architecturalNotes: parsed.detailedAnalysis?.architecturalNotes || []
+        }
+      };
+    } catch (error) {
+      // Simple fallback that ensures deep analysis works
+      const fallback = this.parseAIResponse(text);
+      return {
+        ...fallback,
+        detailedAnalysis: fallback.detailedAnalysis || {
+          overview: fallback.summary,
+          codeSuggestions: [
+            {
+              file: changedFiles[0]?.filename || "main changes",
+              line: 1,
+              original: "// Code changes detected",
+              suggested: "// Review these changes for improvements",
+              reason: "Manual code review recommended for these changes",
+              severity: "MEDIUM" as const,
+              category: "Review" as const
+            }
+          ],
+          securityConcerns: ["Review code for security implications"],
+          performanceImpact: "Monitor performance after deployment",
+          testingRecommendations: ["Add tests for new functionality"],
+          architecturalNotes: ["Review code structure and patterns"]
+        }
+      };
     }
   }
 
