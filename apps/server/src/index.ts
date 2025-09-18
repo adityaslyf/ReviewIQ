@@ -68,6 +68,23 @@ function getWebhookService(): WebhookService {
   return webhookService;
 }
 
+// Verify user has access to a repository
+async function verifyUserRepoAccess(userToken: string, owner: string, repo: string): Promise<boolean> {
+  try {
+    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+      headers: {
+        'Authorization': `Bearer ${userToken}`,
+        'Accept': 'application/vnd.github.v3+json',
+      },
+    });
+    
+    return response.ok;
+  } catch (error) {
+    console.error('Error verifying user repo access:', error);
+    return false;
+  }
+}
+
 app.get("/", (_req, res) => {
 	res.status(200).send("OK");
 });
@@ -110,8 +127,9 @@ app.get("/api/github/status", async (_req, res) => {
         const { data: app } = await octokit.rest.apps.getAuthenticated();
         authStatus = `✓ Authenticated as: ${app?.name || 'Unknown'}`;
       
-    } catch (error: any) {
-      authStatus = `✗ Authentication failed: ${error.message}`;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      authStatus = `✗ Authentication failed: ${errorMessage}`;
     }
 
         // Check Gemini service status
@@ -119,8 +137,9 @@ app.get("/api/github/status", async (_req, res) => {
         try {
           const gemini = getGeminiService();
           geminiStatus = gemini ? "✓ Gemini AI service ready" : "✗ Gemini AI service unavailable";
-        } catch (error: any) {
-          geminiStatus = `✗ Gemini service error: ${error?.message || 'Unknown error'}`;
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          geminiStatus = `✗ Gemini service error: ${errorMessage}`;
         }
 
         res.json({
@@ -129,10 +148,11 @@ app.get("/api/github/status", async (_req, res) => {
           gemini: geminiStatus,
           timestamp: new Date().toISOString()
         });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     res.status(500).json({ 
       error: "Failed to check GitHub status", 
-      details: error?.message || 'Unknown error' 
+      details: errorMessage
     });
   }
 });
@@ -189,7 +209,8 @@ app.get("/api/pull-requests-with-ai", async (_req, res) => {
       .orderBy(schema.pullRequests.createdAt);
 
     // Group by PR and get the latest AI suggestion for each
-    const groupedPRs = prsWithAI.reduce((acc: Record<string, any>, row: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const groupedPRs = prsWithAI.reduce((acc: Record<string, unknown>, row: { pr: any; ai: any }) => {
       const prId = row.pr.id;
       if (!acc[prId]) {
         acc[prId] = {
@@ -201,7 +222,7 @@ app.get("/api/pull-requests-with-ai", async (_req, res) => {
     }, {});
 
     res.json(Object.values(groupedPRs));
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error fetching PRs with AI:", error);
     res.status(500).json({ error: "Failed to fetch PRs with AI suggestions" });
   }
@@ -211,11 +232,22 @@ app.get("/api/pull-requests-with-ai", async (_req, res) => {
 app.get("/api/github/pull-requests", async (req, res) => {
   try {
     const { owner, repo } = req.query;
+    const userToken = req.headers.authorization?.replace('Bearer ', '');
     
     console.log(`Fetching PRs for: ${owner}/${repo}`);
     
     if (!owner || !repo) {
       return res.status(400).json({ error: "Owner and repo parameters are required" });
+    }
+
+    if (!userToken) {
+      return res.status(401).json({ error: "User token is required" });
+    }
+
+    // Verify user has access to this repository
+    const hasAccess = await verifyUserRepoAccess(userToken, owner as string, repo as string);
+    if (!hasAccess) {
+      return res.status(403).json({ error: "Access denied to this repository" });
     }
 
 
@@ -274,9 +306,10 @@ app.get("/api/github/pull-requests", async (req, res) => {
     }));
 
     res.json(transformedPRs);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error fetching GitHub PRs:", error);
-    res.status(500).json({ error: "Failed to fetch GitHub pull requests", details: error?.message || 'Unknown error' });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ error: "Failed to fetch GitHub pull requests", details: errorMessage });
   }
 });
 
@@ -284,10 +317,16 @@ app.get("/api/github/pull-requests", async (req, res) => {
 // Analyze a specific GitHub PR with AI
 app.post("/api/analyze-pr", async (req, res) => {
   try {
-    const { owner, repo, prNumber } = req.body;
+    const { owner, repo, prNumber, userToken } = req.body;
     
-    if (!owner || !repo || !prNumber) {
-      return res.status(400).json({ error: "Owner, repo, and prNumber are required" });
+    if (!owner || !repo || !prNumber || !userToken) {
+      return res.status(400).json({ error: "Owner, repo, prNumber, and userToken are required" });
+    }
+
+    // Verify user has access to this repository
+    const hasAccess = await verifyUserRepoAccess(userToken, owner, repo);
+    if (!hasAccess) {
+      return res.status(403).json({ error: "Access denied to this repository" });
     }
 
     const githubService = getGitHubService();
@@ -381,11 +420,12 @@ app.post("/api/analyze-pr", async (req, res) => {
       });
     }
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error analyzing PR:", error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     res.status(500).json({ 
       error: "Failed to analyze PR", 
-      details: error?.message || 'Unknown error' 
+      details: errorMessage
     });
   }
 });
@@ -424,11 +464,12 @@ app.post("/api/auth/github", async (req, res) => {
     }
 
     res.json({ access_token: tokenData.access_token });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("GitHub OAuth error:", error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     res.status(500).json({ 
       error: "Authentication failed", 
-      details: error?.message || 'Unknown error' 
+      details: errorMessage
     });
   }
 });
@@ -460,7 +501,7 @@ app.post("/webhook", async (req, res) => {
     }
 
     res.status(200).send("OK");
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Webhook error:", error);
     res.status(500).send("Internal Server Error");
   }

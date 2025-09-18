@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { ExternalLink, GitPullRequest, User, Calendar, Search, Github, Brain, Wrench, AlertTriangle } from "lucide-react";
+import { ExternalLink, GitPullRequest, User, Calendar, Github, Brain, Wrench, AlertTriangle } from "lucide-react";
 import { useState } from "react";
+import { RepoSelector } from "./repo-selector";
 
 interface PullRequest {
   id: number;
@@ -24,6 +25,17 @@ interface PullRequest {
   };
 }
 
+interface Repository {
+  id: number;
+  name: string;
+  full_name: string;
+  private: boolean;
+  description: string | null;
+  language: string | null;
+  stargazers_count: number;
+  updated_at: string;
+}
+
 async function fetchPullRequests(): Promise<PullRequest[]> {
   const response = await fetch("http://localhost:3000/api/pull-requests-with-ai");
   if (!response.ok) {
@@ -32,8 +44,12 @@ async function fetchPullRequests(): Promise<PullRequest[]> {
   return response.json();
 }
 
-async function fetchGitHubPRs(owner: string, repo: string): Promise<PullRequest[]> {
-  const response = await fetch(`http://localhost:3000/api/github/pull-requests?owner=${owner}&repo=${repo}`);
+async function fetchGitHubPRs(owner: string, repo: string, userToken: string): Promise<PullRequest[]> {
+  const response = await fetch(`http://localhost:3000/api/github/pull-requests?owner=${owner}&repo=${repo}`, {
+    headers: {
+      'Authorization': `Bearer ${userToken}`,
+    },
+  });
   if (!response.ok) {
     const errorData = await response.json();
     throw new Error(errorData.error || "Failed to fetch GitHub pull requests");
@@ -42,12 +58,11 @@ async function fetchGitHubPRs(owner: string, repo: string): Promise<PullRequest[
 }
 
 export function PRDashboard() {
-  const [repoInput, setRepoInput] = useState("");
-  const [selectedRepo, setSelectedRepo] = useState<{ owner: string; repo: string } | null>(null);
-  const [isFetchingGitHub, setIsFetchingGitHub] = useState(false);
+  const [selectedRepo, setSelectedRepo] = useState<Repository | null>(null);
   const [githubPRs, setGithubPRs] = useState<PullRequest[]>([]);
   const [activeTab, setActiveTab] = useState<"refactor" | "issues">("refactor");
   const [analyzingPRs, setAnalyzingPRs] = useState<Set<number>>(new Set());
+  const [isFetchingPRs, setIsFetchingPRs] = useState(false);
 
   const { data: prs, isLoading, error, refetch } = useQuery({
     queryKey: ["pull-requests"],
@@ -55,25 +70,27 @@ export function PRDashboard() {
     refetchInterval: 5000, // Refetch every 5 seconds
   });
 
-  const handleFetchGitHubPRs = async () => {
-    if (!repoInput.trim()) return;
-    
-    const [owner, repo] = repoInput.trim().split("/");
-    if (!owner || !repo) {
-      alert("Please enter repository in format: owner/repo");
-      return;
-    }
+  const handleRepoSelect = (repo: Repository) => {
+    setSelectedRepo(repo);
+    setGithubPRs([]); // Clear previous PRs when selecting new repo
+  };
 
-    setIsFetchingGitHub(true);
+  const handleFetchGitHubPRs = async (repo: Repository) => {
+    setIsFetchingPRs(true);
     try {
-      const githubPRs = await fetchGitHubPRs(owner, repo);
+      const token = localStorage.getItem('github_token');
+      if (!token) {
+        throw new Error('No GitHub token found');
+      }
+
+      const [owner, repoName] = repo.full_name.split('/');
+      const githubPRs = await fetchGitHubPRs(owner, repoName, token);
       setGithubPRs(githubPRs);
-      setSelectedRepo({ owner, repo });
     } catch (error) {
       console.error("Failed to fetch GitHub PRs:", error);
       alert(`Failed to fetch PRs: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
-      setIsFetchingGitHub(false);
+      setIsFetchingPRs(false);
     }
   };
 
@@ -83,15 +100,22 @@ export function PRDashboard() {
     setAnalyzingPRs(prev => new Set(prev).add(pr.number));
     
     try {
+      const token = localStorage.getItem('github_token');
+      if (!token) {
+        throw new Error('No GitHub token found');
+      }
+
+      const [owner, repoName] = selectedRepo.full_name.split('/');
       const response = await fetch("http://localhost:3000/api/analyze-pr", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          owner: selectedRepo.owner,
-          repo: selectedRepo.repo,
-          prNumber: pr.number
+          owner,
+          repo: repoName,
+          prNumber: pr.number,
+          userToken: token
         }),
       });
 
@@ -239,47 +263,13 @@ export function PRDashboard() {
         </div>
       </div>
 
-      {/* GitHub Repository Search */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Github className="h-5 w-5" />
-            Fetch PRs from GitHub Repository
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Enter repository (e.g., facebook/react)"
-              value={repoInput}
-              onChange={(e) => setRepoInput(e.target.value)}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              onKeyPress={(e) => e.key === "Enter" && handleFetchGitHubPRs()}
-            />
-            <button
-              onClick={handleFetchGitHubPRs}
-              disabled={isFetchingGitHub || !repoInput.trim()}
-              className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {isFetchingGitHub ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              ) : (
-                <Search className="h-4 w-4" />
-              )}
-              {isFetchingGitHub ? "Fetching..." : "Fetch PRs"}
-            </button>
-          </div>
-          {selectedRepo && (
-            <div className="mt-2 text-sm text-gray-600">
-              Showing PRs from: <code className="bg-gray-100 px-2 py-1 rounded">{selectedRepo.owner}/{selectedRepo.repo}</code>
-            </div>
-          )}
-          <div className="mt-2 text-xs text-gray-500">
-            💡 Tip: You can analyze any public repository's pull requests for AI suggestions
-          </div>
-        </CardContent>
-      </Card>
+      {/* Repository Selection */}
+      <RepoSelector 
+        onRepoSelect={handleRepoSelect}
+        selectedRepo={selectedRepo}
+        onFetchPRs={handleFetchGitHubPRs}
+        isFetchingPRs={isFetchingPRs}
+      />
 
       {/* Display GitHub PRs if fetched */}
       {githubPRs.length > 0 && (
@@ -289,17 +279,57 @@ export function PRDashboard() {
               <Github className="h-5 w-5" />
               GitHub Pull Requests ({githubPRs.length})
             </h3>
-            <button
-              onClick={() => {
-                githubPRs.forEach(pr => handleAnalyzePR(pr));
-              }}
-              disabled={analyzingPRs.size > 0}
-              className="inline-flex items-center gap-2 px-3 py-2 bg-purple-500 text-white text-sm rounded-md hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              <Brain className="h-4 w-4" />
-              Analyze All PRs
-            </button>
+            <div className="flex items-center gap-2">
+              {analyzingPRs.size > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  Analyzing {analyzingPRs.size} PR{analyzingPRs.size > 1 ? 's' : ''}
+                </Badge>
+              )}
+              <button
+                onClick={() => {
+                  githubPRs.forEach(pr => handleAnalyzePR(pr));
+                }}
+                disabled={analyzingPRs.size > 0}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-purple-500 text-white text-sm rounded-md hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {analyzingPRs.size > 0 ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Brain className="h-4 w-4" />
+                    Analyze All PRs
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => refetch()}
+                className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-md"
+              >
+                Refresh
+              </button>
+            </div>
           </div>
+          
+          {/* Analysis Status Message */}
+          {githubPRs.length > 0 && analyzingPRs.size === 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Brain className="h-5 w-5 text-blue-600" />
+                <span className="font-medium text-blue-900">Ready for AI Analysis</span>
+              </div>
+              <div className="text-sm text-blue-800 space-y-1">
+                <p>Choose your analysis approach:</p>
+                <ul className="list-disc list-inside ml-4 space-y-1">
+                  <li><strong>Individual Analysis:</strong> Click "Analyze PR #X" on specific pull requests</li>
+                  <li><strong>Bulk Analysis:</strong> Click "Analyze All PRs" to analyze all at once</li>
+                </ul>
+              </div>
+            </div>
+          )}
+          
           <div className="grid gap-4">
             {githubPRs.map((pr) => (
               <Card key={pr.id} className="hover:shadow-md transition-shadow border-green-200">
@@ -324,6 +354,11 @@ export function PRDashboard() {
                     <div className="flex items-center gap-2">
                       <Badge variant="outline">#{pr.number}</Badge>
                       <Badge variant="secondary">{pr.state}</Badge>
+                      {pr.aiSuggestions && (
+                        <Badge variant="default" className="bg-green-500 text-white">
+                          ✓ Analyzed
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </CardHeader>
@@ -343,34 +378,40 @@ export function PRDashboard() {
                       </div>
                     )}
                     
-                    <div className="flex justify-between items-center">
-                      <button
-                        onClick={() => handleAnalyzePR(pr)}
-                        disabled={analyzingPRs.has(pr.number)}
-                        className="inline-flex items-center gap-2 px-3 py-2 bg-purple-500 text-white text-sm rounded-md hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                      >
-                        {analyzingPRs.has(pr.number) ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                            Analyzing...
-                          </>
-                        ) : (
-                          <>
-                            <Brain className="h-4 w-4" />
-                            Get AI Suggestions
-                          </>
-                        )}
-                      </button>
+                    <div className="space-y-3">
+                      {/* Analysis Button */}
+                      <div className="flex justify-center">
+                        <button
+                          onClick={() => handleAnalyzePR(pr)}
+                          disabled={analyzingPRs.has(pr.number)}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-purple-500 text-white text-sm rounded-md hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
+                        >
+                          {analyzingPRs.has(pr.number) ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              Analyzing PR #{pr.number}...
+                            </>
+                          ) : (
+                            <>
+                              <Brain className="h-4 w-4" />
+                              Analyze PR #{pr.number}
+                            </>
+                          )}
+                        </button>
+                      </div>
                       
-                      <a
-                        href={pr.url || `https://github.com/${pr.repo}/pull/${pr.number}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
-                      >
-                        View on GitHub
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
+                      {/* GitHub Link */}
+                      <div className="flex justify-center">
+                        <a
+                          href={pr.url || `https://github.com/${pr.repo}/pull/${pr.number}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
+                        >
+                          View on GitHub
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
                     </div>
                   </div>
                 </CardContent>

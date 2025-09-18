@@ -9,20 +9,8 @@ export const Route = createFileRoute("/")({
 });
 
 const TITLE_TEXT = `
- ██████╗ ███████╗████████╗████████╗███████╗██████╗
- ██╔══██╗██╔════╝╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗
- ██████╔╝█████╗     ██║      ██║   █████╗  ██████╔╝
- ██╔══██╗██╔══╝     ██║      ██║   ██╔══╝  ██╔══██╗
- ██████╔╝███████╗   ██║      ██║   ███████╗██║  ██║
- ╚═════╝ ╚══════╝   ╚═╝      ╚═╝   ╚══════╝╚═╝  ╚═╝
-
- ████████╗    ███████╗████████╗ █████╗  ██████╗██╗  ██╗
- ╚══██╔══╝    ██╔════╝╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝
-    ██║       ███████╗   ██║   ███████║██║     █████╔╝
-    ██║       ╚════██║   ██║   ██╔══██║██║     ██╔═██╗
-    ██║       ███████║   ██║   ██║  ██║╚██████╗██║  ██╗
-    ╚═╝       ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
- `;
+ReviewIQ
+`;
 
 const queryClient = new QueryClient();
 
@@ -50,6 +38,35 @@ function DashboardContent() {
 		);
 	}
 
+	if (!isAuthenticated) {
+		return (
+			<div className="min-h-screen flex items-center justify-center bg-gray-50">
+				<div className="text-center max-w-md mx-auto p-8">
+					<div className="mb-8">
+						<pre className="overflow-x-auto font-mono text-sm text-center">{TITLE_TEXT}</pre>
+						<p className="text-center text-gray-600 mt-4">
+							Smart PR Review - AI-powered GitHub bot for intelligent code analysis
+						</p>
+					</div>
+					
+					<div className="bg-white rounded-lg shadow-lg p-8">
+						<h2 className="text-2xl font-bold text-gray-900 mb-4">Welcome to ReviewIQ</h2>
+						<p className="text-gray-600 mb-6">
+							Sign in with GitHub to access your repositories and analyze pull requests with AI-powered insights.
+						</p>
+						<LoginButton />
+					</div>
+					
+					<div className="mt-8 text-sm text-gray-500">
+						<p>🔒 Secure authentication with GitHub OAuth</p>
+						<p>🤖 AI-powered PR analysis and suggestions</p>
+						<p>📊 Comprehensive code review insights</p>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
 	return (
 		<div className="container mx-auto max-w-6xl px-4 py-8">
 			<div className="mb-8">
@@ -61,11 +78,7 @@ function DashboardContent() {
 						</p>
 					</div>
 					<div className="flex items-center gap-4">
-						{isAuthenticated ? (
-							<UserProfile />
-						) : (
-							<LoginButton />
-						)}
+						<UserProfile />
 					</div>
 				</div>
 			</div>

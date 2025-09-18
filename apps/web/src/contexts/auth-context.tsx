@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import Cookies from 'js-cookie';
 
 export interface User {
   id: number;
@@ -38,7 +37,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     // Check if user is already authenticated
-    const token = Cookies.get('github_token');
+    const token = localStorage.getItem('github_token');
     if (token) {
       fetchUserData(token);
     } else {
@@ -60,11 +59,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(userData);
       } else {
         // Token is invalid, remove it
-        Cookies.remove('github_token');
+        localStorage.removeItem('github_token');
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
-      Cookies.remove('github_token');
+      localStorage.removeItem('github_token');
     } finally {
       setIsLoading(false);
     }
@@ -87,7 +86,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = () => {
     setUser(null);
-    Cookies.remove('github_token');
+    localStorage.removeItem('github_token');
   };
 
   const value: AuthContextType = {

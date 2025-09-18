@@ -1,6 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import Cookies from "js-cookie";
 
 export const Route = createFileRoute("/auth/callback")({
   component: AuthCallback,
@@ -46,8 +45,8 @@ function AuthCallback() {
 
         const { access_token } = await response.json();
         
-        // Store token in cookie
-        Cookies.set('github_token', access_token, { expires: 30 }); // 30 days
+        // Store token in localStorage
+        localStorage.setItem('github_token', access_token);
         
         setStatus('success');
         
