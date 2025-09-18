@@ -76,7 +76,17 @@ export class GeminiService {
       `- ${file.filename}: +${file.additions} -${file.deletions} (${file.changes} total changes)`
     ).join('\n');
 
-    return `You are an expert code reviewer with deep expertise in software engineering best practices, security, performance optimization, and code quality. Analyze this GitHub pull request with the depth and thoroughness of CodeRabbit or similar professional code review tools.
+    return `You are a **senior software engineer** performing a **code review** on a GitHub Pull Request. 
+Act like a highly experienced reviewer with 10+ years of experience: focus on correctness, maintainability, performance, scalability, security, and best practices.
+Be strict but constructive, and provide actionable, detailed insights like CodeRabbit or senior developers.
+
+**Think like a mentor reviewer, not a linter.** Look for:
+- Logic flaws and potential bugs
+- Performance bottlenecks (N+1 queries, memory leaks, inefficient algorithms)
+- Security vulnerabilities (SQL injection, XSS, authentication issues)
+- Architecture improvements (SOLID principles, design patterns)
+- Missing error handling and edge cases
+- Code duplication and refactoring opportunities
 
 CRITICAL: You MUST respond with ONLY valid JSON. Do not include any text before or after the JSON. Do not wrap the JSON in markdown code blocks.
 
@@ -121,6 +131,11 @@ Description: ${prDescription || 'No description provided'}
 
 Files Changed:
 ${fileSummary}
+
+REPOSITORY CONTEXT:
+- Language: ${this.detectPrimaryLanguage(changedFiles)}
+- Framework: ${this.detectFramework(changedFiles)}
+- File Types: ${this.getFileTypes(changedFiles)}
 
 COMPLETE DIFF FOR ANALYSIS:
 \`\`\`diff
@@ -195,6 +210,86 @@ INSTRUCTIONS:
         refactorSuggestions: refactorMatch ? refactorMatch[1] : "Analysis completed but response parsing failed. Raw response logged to server.",
         potentialIssues: issuesMatch ? issuesMatch[1] : "Analysis completed but response parsing failed. Raw response logged to server."
       };
+    }
+  }
+
+  private detectPrimaryLanguage(files: Array<{ filename: string }>): string {
+    try {
+      if (!files || files.length === 0) return 'Unknown';
+      
+      const extensions = files.map(f => f.filename?.split('.').pop()?.toLowerCase()).filter(Boolean);
+      if (extensions.length === 0) return 'Mixed';
+      
+      const langMap: Record<string, string> = {
+        'ts': 'TypeScript', 'tsx': 'TypeScript React',
+        'js': 'JavaScript', 'jsx': 'JavaScript React',
+        'py': 'Python', 'java': 'Java', 'go': 'Go',
+        'rs': 'Rust', 'php': 'PHP', 'rb': 'Ruby',
+        'swift': 'Swift', 'kt': 'Kotlin', 'dart': 'Dart'
+      };
+      
+      const counts = extensions.reduce((acc, ext) => {
+        if (ext) acc[ext] = (acc[ext] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      const primaryExt = Object.entries(counts).sort(([,a], [,b]) => b - a)[0]?.[0];
+      return langMap[primaryExt] || primaryExt || 'Mixed';
+    } catch (error) {
+      console.warn('Error detecting primary language:', error);
+      return 'Unknown';
+    }
+  }
+
+  private detectFramework(files: Array<{ filename: string }>): string {
+    try {
+      if (!files || files.length === 0) return 'Unknown';
+      
+      const filenames = files.map(f => f.filename?.toLowerCase()).filter(Boolean);
+      if (filenames.length === 0) return 'Unknown';
+      
+      if (filenames.some(f => f.includes('package.json') || f.includes('node_modules'))) {
+        if (filenames.some(f => f.includes('next') || f.includes('_app'))) return 'Next.js';
+        if (filenames.some(f => f.includes('react') || f.endsWith('.tsx') || f.endsWith('.jsx'))) return 'React';
+        if (filenames.some(f => f.includes('vue'))) return 'Vue.js';
+        if (filenames.some(f => f.includes('angular'))) return 'Angular';
+        return 'Node.js';
+      }
+      
+      if (filenames.some(f => f.includes('requirements.txt') || f.includes('pyproject.toml'))) {
+        if (filenames.some(f => f.includes('django'))) return 'Django';
+        if (filenames.some(f => f.includes('flask'))) return 'Flask';
+        if (filenames.some(f => f.includes('fastapi'))) return 'FastAPI';
+        return 'Python';
+      }
+      
+      return 'Unknown';
+    } catch (error) {
+      console.warn('Error detecting framework:', error);
+      return 'Unknown';
+    }
+  }
+
+  private getFileTypes(files: Array<{ filename: string }>): string {
+    try {
+      if (!files || files.length === 0) return 'Unknown';
+      
+      const types = new Set(files.map(f => {
+        if (!f.filename) return 'Unknown';
+        const name = f.filename.toLowerCase();
+        if (name.includes('test') || name.includes('spec')) return 'Tests';
+        if (name.includes('config') || name.includes('.json') || name.includes('.yml')) return 'Config';
+        if (name.includes('component') || name.includes('page')) return 'UI Components';
+        if (name.includes('api') || name.includes('route') || name.includes('controller')) return 'API/Backend';
+        if (name.includes('util') || name.includes('helper')) return 'Utilities';
+        if (name.includes('type') || name.includes('interface')) return 'Types';
+        return 'Source Code';
+      }));
+      
+      return Array.from(types).join(', ');
+    } catch (error) {
+      console.warn('Error detecting file types:', error);
+      return 'Mixed';
     }
   }
 }
