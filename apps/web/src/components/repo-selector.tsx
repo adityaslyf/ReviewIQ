@@ -21,9 +21,10 @@ interface RepoSelectorProps {
   selectedRepo: Repository | null;
   onFetchPRs: (repo: Repository) => void;
   isFetchingPRs?: boolean;
+  compact?: boolean;
 }
 
-export function RepoSelector({ onRepoSelect, selectedRepo, onFetchPRs, isFetchingPRs = false }: RepoSelectorProps) {
+export function RepoSelector({ onRepoSelect, selectedRepo, onFetchPRs, isFetchingPRs = false, compact = false }: RepoSelectorProps) {
   const { isAuthenticated, user } = useAuth();
   const [repos, setRepos] = useState<Repository[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -85,34 +86,34 @@ export function RepoSelector({ onRepoSelect, selectedRepo, onFetchPRs, isFetchin
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Github className="h-5 w-5" />
-          Select Repository to Analyze
+      <CardHeader className={compact ? "py-3" : undefined}>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Github className="h-4 w-4" />
+          {compact ? 'Repository' : 'Select Repository to Analyze'}
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
+      <CardContent className={compact ? "pt-0" : undefined}>
+        <div className={compact ? "space-y-3" : "space-y-4"}>
           {/* Search and Filter */}
           <div className="flex gap-2">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search repositories..."
+                placeholder="Search repos..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full bg-white text-gray-900 placeholder-gray-500 ${compact ? 'pl-8 pr-2 py-1.5 text-sm' : 'pl-10 pr-3 py-2'} border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
               />
             </div>
             <select
               value={filterPrivate}
               onChange={(e) => setFilterPrivate(e.target.value as 'all' | 'public' | 'private')}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`bg-white text-gray-900 ${compact ? 'px-2 py-1.5 text-sm' : 'px-3 py-2'} border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
             >
-              <option value="all">All Repos</option>
-              <option value="public">Public Only</option>
-              <option value="private">Private Only</option>
+              <option value="all">All</option>
+              <option value="public">Public</option>
+              <option value="private">Private</option>
             </select>
           </div>
 
@@ -123,7 +124,7 @@ export function RepoSelector({ onRepoSelect, selectedRepo, onFetchPRs, isFetchin
               <p className="ml-3 text-gray-700">Loading repositories...</p>
             </div>
           ) : (
-            <div className="space-y-2 max-h-96 overflow-y-auto">
+            <div className={`space-y-2 ${compact ? 'max-h-72' : 'max-h-96'} overflow-y-auto`}>
               {filteredRepos.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   {searchTerm ? 'No repositories match your search' : 'No repositories found'}
@@ -141,28 +142,28 @@ export function RepoSelector({ onRepoSelect, selectedRepo, onFetchPRs, isFetchin
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-medium text-gray-900">{repo.name}</h3>
+                        <div className={`flex items-center gap-2 ${compact ? 'mb-0.5' : 'mb-1'}`}>
+                          <h3 className={`font-medium text-gray-900 ${compact ? 'text-sm' : ''}`}>{repo.name}</h3>
                           {repo.private ? (
-                            <Lock className="h-4 w-4 text-red-500" />
+                            <Lock className="h-3.5 w-3.5 text-red-500" />
                           ) : (
-                            <Globe className="h-4 w-4 text-green-500" />
+                            <Globe className="h-3.5 w-3.5 text-green-500" />
                           )}
                         </div>
-                        <p className="text-sm text-gray-600 mb-2">{repo.full_name}</p>
-                        {repo.description && (
+                        <p className={`text-sm text-gray-600 ${compact ? 'mb-1' : 'mb-2'}`}>{repo.full_name}</p>
+                        {!compact && repo.description && (
                           <p className="text-sm text-gray-500 mb-2 line-clamp-2">
                             {repo.description}
                           </p>
                         )}
-                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                        <div className="flex items-center gap-3 text-xs text-gray-500">
                           {repo.language && (
-                            <span className="bg-gray-100 px-2 py-1 rounded">
+                            <span className="bg-gray-100 px-2 py-0.5 rounded">
                               {repo.language}
                             </span>
                           )}
                           <span>⭐ {repo.stargazers_count}</span>
-                          <span>Updated {formatDate(repo.updated_at)}</span>
+                          <span>{formatDate(repo.updated_at)}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -182,21 +183,21 @@ export function RepoSelector({ onRepoSelect, selectedRepo, onFetchPRs, isFetchin
 
           {/* Selected Repository Info */}
           {selectedRepo && (
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className={`mt-3 ${compact ? 'p-2' : 'p-3'} bg-blue-50 border border-blue-200 rounded-lg`}>
               <div className="flex items-center gap-2 mb-2">
                 <Github className="h-4 w-4 text-blue-600" />
                 <span className="font-medium text-blue-900">Selected Repository</span>
               </div>
               <p className="text-sm text-blue-800">
                 <strong>{selectedRepo.full_name}</strong>
-                {selectedRepo.description && (
+                {!compact && selectedRepo.description && (
                   <span className="block mt-1 text-blue-700">{selectedRepo.description}</span>
                 )}
               </p>
               <button
                 onClick={() => onFetchPRs(selectedRepo)}
                 disabled={isFetchingPRs}
-                className="mt-3 w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className={`mt-3 w-full ${compact ? 'px-3 py-1.5 text-sm' : 'px-4 py-2'} bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
               >
                 {isFetchingPRs ? (
                   <>

@@ -1,10 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Checkbox } from "./ui/checkbox";
-import { ExternalLink, GitPullRequest, User, Calendar, Github, Brain, Wrench, AlertTriangle, CheckCircle, XCircle, Info, Zap } from "lucide-react";
+import { ExternalLink, GitPullRequest, User, Calendar, Brain, Wrench, AlertTriangle, CheckCircle, XCircle, Info, Zap, Search } from "lucide-react";
 import { useState } from "react";
-import { RepoSelector } from "./repo-selector";
+import { Sidebar } from "./sidebar";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/auth-context";
 import { CodeSuggestionsList } from "./code-suggestion";
@@ -27,6 +26,7 @@ interface PullRequest {
     refactorSuggestions: string;
     potentialIssues: string;
     analysisStatus: string;
+    analysisMode?: string;
     detailedAnalysis?: {
       overview: string;
       codeSuggestions: Array<{
@@ -150,6 +150,8 @@ export function PRDashboard() {
   const [isFetchingPRs, setIsFetchingPRs] = useState(false);
   const [selectedPRs, setSelectedPRs] = useState<Set<number>>(new Set());
   const [prFilter, setPrFilter] = useState<"all" | "open" | "closed">("all");
+  const [source, setSource] = useState<"stored" | "github">("stored");
+  const [selectedKey, setSelectedKey] = useState<{ repo: string; number: number } | null>(null);
 
   const { data: prs, isLoading, error, refetch } = useQuery({
     queryKey: ["pull-requests"],
@@ -260,6 +262,15 @@ export function PRDashboard() {
   };
 
   const filteredGithubPRs = githubPRs.filter(pr => prFilter === 'all' || (pr.state || '').toLowerCase() === prFilter);
+
+  const displayedPRs: PullRequest[] = source === 'github' ? filteredGithubPRs : (prs || []);
+
+  const selectedStoredPR: PullRequest | undefined = (() => {
+    if (!selectedKey) return undefined;
+    if (source === 'stored') return (prs || []).find(p => p.repo === selectedKey.repo && p.number === selectedKey.number);
+    // source === 'github' → find matching stored PR for analysis details
+    return (prs || []).find(p => p.repo === selectedKey.repo && p.number === selectedKey.number);
+  })();
 
   const renderAIAnalysis = (pr: PullRequest) => {
     if (!pr.aiSuggestions) {
@@ -433,298 +444,269 @@ export function PRDashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Pull Requests Dashboard</h2>
-        <div className="flex items-center space-x-2">
-          <Badge variant="secondary">{prs?.length || 0} PRs</Badge>
-          <button
-            onClick={() => refetch()}
-            className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded"
-          >
-            Refresh
-          </button>
+    <div className="h-full bg-gray-50">
+      {/* Top Navigation Bar */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+              <GitPullRequest className="h-6 w-6 text-blue-600" />
+              Pull Request Dashboard
+            </h1>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs">
+                {displayedPRs.length} Total PRs
+              </Badge>
+              {analyzingPRs.size > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-600 mr-1"></div>
+                  Analyzing {analyzingPRs.size}
+                </Badge>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => refetch()}
+              className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Two-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Sidebar: Repo selector */}
-        <div className="lg:col-span-4">
-          <RepoSelector
-            onRepoSelect={handleRepoSelect}
+      <div className="flex h-full">
+        {/* Left Sidebar - Controls */}
+        <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+          <Sidebar
+            source={source}
+            onSourceChange={setSource}
             selectedRepo={selectedRepo}
+            onRepoSelect={(repo) => {
+              handleRepoSelect(repo);
+              setSelectedKey(null);
+            }}
             onFetchPRs={handleFetchGitHubPRs}
             isFetchingPRs={isFetchingPRs}
+            prFilter={prFilter}
+            onFilterChange={setPrFilter}
+            selectedPRs={selectedPRs}
+            analyzingPRs={analyzingPRs}
+            onAnalyzeSelected={handleAnalyzeSelected}
+            onClearSelection={() => {
+              setSelectedPRs(new Set());
+              toast.message('Selection cleared');
+            }}
+            onRefresh={refetch}
+            storedCount={prs?.length || 0}
+            githubCount={filteredGithubPRs.length}
           />
         </div>
 
-        {/* Main: PR workspace */}
-        <div className="lg:col-span-8 space-y-4">
-          {/* Controls row: filters + actions */}
-          {selectedRepo && (
-            <Card>
-              <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">Filter:</span>
-                  <div className="flex rounded-md border">
-                    <button
-                      onClick={() => setPrFilter('all')}
-                      className={`px-3 py-1 text-sm ${prFilter === 'all' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-                    >All</button>
-                    <button
-                      onClick={() => setPrFilter('open')}
-                      className={`px-3 py-1 text-sm border-l ${prFilter === 'open' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-                    >Open</button>
-                    <button
-                      onClick={() => setPrFilter('closed')}
-                      className={`px-3 py-1 text-sm border-l ${prFilter === 'closed' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-                    >Closed</button>
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col">
+          {/* PR List Section */}
+          <div className="flex-1 bg-white">
+            {/* Section Header */}
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  {source === 'github' ? (
+                    <>
+                      <GitPullRequest className="h-5 w-5 text-green-600" />
+                      GitHub Pull Requests
+                    </>
+                  ) : (
+                    <>
+                      <GitPullRequest className="h-5 w-5 text-blue-600" />
+                      Stored Pull Requests
+                    </>
+                  )}
+                </h2>
+                <div className="flex items-center gap-3">
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search PRs..."
+                      className="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleAnalyzeSelected}
-                    disabled={selectedPRs.size === 0 || analyzingPRs.size > 0}
-                    className="inline-flex items-center gap-2 px-3 py-2 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                  >
-                    <Brain className="h-4 w-4" />
-                    Analyze Selected ({selectedPRs.size})
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedPRs(new Set());
-                      toast.message('Selection cleared');
-                    }}
-                    disabled={selectedPRs.size === 0}
-                    className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-md disabled:bg-gray-100 disabled:text-gray-400"
-                  >
-                    Clear Selection
-                  </button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* GitHub PRs list */}
-          {selectedRepo && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Github className="h-5 w-5" />
-                  GitHub Pull Requests ({filteredGithubPRs.length})
-                </h3>
-                <div className="flex items-center gap-2">
-                  {analyzingPRs.size > 0 && (
-                    <Badge variant="secondary" className="text-xs">
-                      Analyzing {analyzingPRs.size} PR{analyzingPRs.size > 1 ? 's' : ''}
-                    </Badge>
-                  )}
-                  <button
-                    onClick={() => { filteredGithubPRs.forEach(pr => handleAnalyzePR(pr)); }}
-                    disabled={analyzingPRs.size > 0 || filteredGithubPRs.length === 0}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-purple-500 text-white text-sm rounded-md hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                  >
-                    {analyzingPRs.size > 0 ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        Analyzing...
-                      </>
-                    ) : (
-                      <>
-                        <Brain className="h-4 w-4" />
-                        Analyze All PRs
-                      </>
-                    )}
-                  </button>
-                </div>
               </div>
+            </div>
 
-              {/* Skeletons while fetching */}
-              {isFetchingPRs && (
-                <div className="space-y-3">
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="border rounded-lg p-4 animate-pulse bg-gray-50">
-                      <div className="h-4 w-1/2 bg-gray-200 rounded mb-3" />
-                      <div className="h-3 w-1/3 bg-gray-200 rounded mb-2" />
+            {/* PR Grid/List */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {isFetchingPRs && source === 'github' ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="p-6 animate-pulse bg-gray-50 rounded-lg border">
+                      <div className="h-4 w-3/4 bg-gray-200 rounded mb-3" />
+                      <div className="h-3 w-1/2 bg-gray-200 rounded mb-2" />
                       <div className="h-3 w-1/4 bg-gray-200 rounded" />
                     </div>
                   ))}
                 </div>
-              )}
+              ) : displayedPRs.length === 0 ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <GitPullRequest className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+                    <h3 className="text-xl font-medium text-gray-900 mb-2">No Pull Requests</h3>
+                    <p className="text-gray-500 mb-4 max-w-md">
+                      {source === 'github' 
+                        ? 'Select a repository from the sidebar and fetch PRs to get started with AI analysis' 
+                        : 'No stored pull requests found. PRs will appear here after webhook events or manual analysis'
+                      }
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {displayedPRs.map((pr) => {
+                    const isSelected = selectedKey && pr.repo === selectedKey.repo && pr.number === selectedKey.number;
+                    return (
+                      <div
+                        key={`${pr.repo}-${pr.number}`}
+                        onClick={() => setSelectedKey({ repo: pr.repo, number: pr.number })}
+                        className={`p-6 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
+                          isSelected 
+                            ? 'border-blue-500 bg-blue-50 shadow-md ring-2 ring-blue-200' 
+                            : 'border-gray-200 hover:border-gray-300 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <GitPullRequest className="h-4 w-4 text-green-600 flex-shrink-0" />
+                            {pr.aiSuggestions && (
+                              <Badge variant="default" className="bg-green-500 text-white text-xs">
+                                AI Analyzed
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {source === 'github' && (
+                              <div onClick={(e) => e.stopPropagation()}>
+                                <Checkbox
+                                  checked={selectedPRs.has(pr.number)}
+                                  onCheckedChange={() => handleToggleSelect(pr.number)}
+                                  aria-label={`Select PR #${pr.number}`}
+                                />
+                              </div>
+                            )}
+                            <Badge variant="outline" className="text-xs">
+                              #{pr.number}
+                            </Badge>
+                          </div>
+                        </div>
 
-              {!isFetchingPRs && (
-                <div className="grid gap-4">
-                  {filteredGithubPRs.map((pr) => (
-              <Card key={pr.id} className="hover:shadow-md transition-shadow border-green-200">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg mb-2 flex items-center gap-2">
-                        <GitPullRequest className="h-5 w-5 text-green-500" />
-                        {pr.title}
-                      </CardTitle>
-                      <div className="flex items-center gap-4 text-sm text-gray-600">
-                        <div className="flex items-center gap-1">
-                          <User className="h-4 w-4" />
-                          {pr.author}
+                        <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 leading-tight">
+                          {pr.title}
+                        </h3>
+
+                        <div className="space-y-2 mb-4">
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <User className="h-3 w-3" />
+                            <span>{pr.author}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <Calendar className="h-3 w-3" />
+                            <span>{new Date(pr.createdAt).toLocaleDateString()}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">
+                              {pr.repo}
+                            </code>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          {new Date(pr.createdAt).toLocaleDateString()}
-                        </div>
-                      </div>
-                    </div>
-                          <div className="flex items-center gap-3">
-                            <Checkbox
-                              checked={selectedPRs.has(pr.number)}
-                              onCheckedChange={() => handleToggleSelect(pr.number)}
-                              aria-label={`Select PR #${pr.number}`}
-                            />
-                      <Badge variant="outline">#{pr.number}</Badge>
-                      <Badge variant="secondary">{pr.state}</Badge>
-                      {pr.aiSuggestions && (
-                        <Badge variant="default" className="bg-green-500 text-white">
-                          ✓ Analyzed
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">Repository:</span>
-                      <code className="bg-gray-100 px-2 py-1 rounded text-sm">{pr.repo}</code>
-                    </div>
-                    
-                    {pr.body && (
-                      <div>
-                        <span className="text-sm font-medium">Description:</span>
-                        <p className="text-sm text-gray-600 mt-1 bg-gray-50 p-3 rounded max-h-32 overflow-y-auto">
-                          {pr.body.substring(0, 200)}{pr.body.length > 200 ? "..." : ""}
-                        </p>
-                      </div>
-                    )}
-                    
-                    <div className="space-y-3">
-                      {/* Analysis Button */}
-                      <div className="flex justify-center">
-                        <button
-                          onClick={() => handleAnalyzePR(pr)}
-                          disabled={analyzingPRs.has(pr.number)}
-                          className="inline-flex items-center gap-2 px-4 py-2 bg-purple-500 text-white text-sm rounded-md hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
-                        >
-                          {analyzingPRs.has(pr.number) ? (
-                            <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                              AI + Static Analysis...
-                            </>
-                          ) : (
-                            <>
-                              <Zap className="h-4 w-4" />
-                              AI + Static Analysis
-                            </>
+
+                        <div className="flex items-center justify-between">
+                          <a
+                            href={pr.url || `https://github.com/${pr.repo}/pull/${pr.number}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                          >
+                            View on GitHub <ExternalLink className="h-3 w-3" />
+                          </a>
+                          
+                          {source === 'github' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAnalyzePR(pr);
+                              }}
+                              disabled={analyzingPRs.has(pr.number)}
+                              className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                            >
+                              {analyzingPRs.has(pr.number) ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                                  Analyzing...
+                                </>
+                              ) : (
+                                <>
+                                  <Zap className="h-3 w-3" />
+                                  Analyze
+                                </>
+                              )}
+                            </button>
                           )}
-                        </button>
+                        </div>
                       </div>
-                      
-                      {/* GitHub Link */}
-                      <div className="flex justify-center">
-                        <a
-                          href={pr.url || `https://github.com/${pr.repo}/pull/${pr.number}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
-                        >
-                          View on GitHub
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
-          )}
+          </div>
 
-          {/* Display Database PRs */}
-          <div className="space-y-4">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-          <GitPullRequest className="h-5 w-5" />
-          Stored Pull Requests ({prs?.length || 0})
-        </h3>
-        
-        {!prs || prs.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <GitPullRequest className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No Stored Pull Requests Yet</h3>
-              <p className="text-gray-500 mb-4">
-                Create a pull request in a repository connected to your GitHub App to see it here.
-              </p>
-              <div className="text-sm text-gray-400">
-                <p>Make sure your GitHub App webhook is configured correctly.</p>
-                <p>Webhook URL should point to: <code className="bg-gray-100 px-2 py-1 rounded">http://your-domain/webhook</code></p>
+          {/* Analysis Results Section */}
+          {selectedKey && (
+            <div className="h-1/2 bg-white border-t border-gray-200">
+              {/* Section Header */}
+              <div className="px-6 py-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Brain className="h-5 w-5 text-purple-600" />
+                    AI Analysis Results
+                    <Badge variant="outline" className="text-xs">
+                      {selectedKey.repo} #{selectedKey.number}
+                    </Badge>
+                  </h2>
+                  <button
+                    onClick={() => setSelectedKey(null)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <XCircle className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4">
-            {prs.map((pr) => (
-              <Card key={pr.id} className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg mb-2 flex items-center gap-2">
-                        <GitPullRequest className="h-5 w-5 text-blue-500" />
-                        {pr.title}
-                      </CardTitle>
-                      <div className="flex items-center gap-4 text-sm text-gray-600">
-                        <div className="flex items-center gap-1">
-                          <User className="h-4 w-4" />
-                          {pr.author}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          {new Date(pr.createdAt).toLocaleDateString()}
-                        </div>
-                      </div>
-                    </div>
-                    <Badge variant="outline">#{pr.number}</Badge>
+              
+              {/* Analysis Content */}
+              <div className="flex-1 overflow-y-auto p-6">
+                {selectedStoredPR ? (
+                  <div className="max-w-none">
+                    {renderAIAnalysis(selectedStoredPR)}
                   </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">Repository:</span>
-                      <code className="bg-gray-100 px-2 py-1 rounded text-sm">{pr.repo}</code>
-                    </div>
-                    
-                        {renderAIAnalysis(pr)}
-                    
-                    <div className="flex justify-end">
-                      <a
-                        href={`https://github.com/${pr.repo}/pull/${pr.number}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
-                      >
-                        View on GitHub
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <AlertTriangle className="mx-auto h-12 w-12 text-amber-500 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">No Analysis Available</h3>
+                      <p className="text-gray-600 mb-4 max-w-md">
+                        This pull request hasn't been analyzed yet. 
+                        {source === 'github' && ' Click the "Analyze" button on the PR card to generate AI insights.'}
+                      </p>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-          </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

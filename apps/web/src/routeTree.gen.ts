@@ -9,13 +9,49 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as StoredRouteImport } from './routes/stored'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as RepositoriesRouteImport } from './routes/repositories'
+import { Route as PullRequestsRouteImport } from './routes/pull-requests'
 import { Route as LandingRouteImport } from './routes/landing'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 
+const StoredRoute = StoredRouteImport.update({
+  id: '/stored',
+  path: '/stored',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RepositoriesRoute = RepositoriesRouteImport.update({
+  id: '/repositories',
+  path: '/repositories',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PullRequestsRoute = PullRequestsRouteImport.update({
+  id: '/pull-requests',
+  path: '/pull-requests',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LandingRoute = LandingRouteImport.update({
   id: '/landing',
   path: '/landing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalysisRoute = AnalysisRouteImport.update({
+  id: '/analysis',
+  path: '/analysis',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -31,41 +67,135 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/analysis': typeof AnalysisRoute
+  '/dashboard': typeof DashboardRoute
   '/landing': typeof LandingRoute
+  '/pull-requests': typeof PullRequestsRoute
+  '/repositories': typeof RepositoriesRoute
+  '/settings': typeof SettingsRoute
+  '/stored': typeof StoredRoute
   '/auth/callback': typeof AuthCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/analysis': typeof AnalysisRoute
+  '/dashboard': typeof DashboardRoute
   '/landing': typeof LandingRoute
+  '/pull-requests': typeof PullRequestsRoute
+  '/repositories': typeof RepositoriesRoute
+  '/settings': typeof SettingsRoute
+  '/stored': typeof StoredRoute
   '/auth/callback': typeof AuthCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/analysis': typeof AnalysisRoute
+  '/dashboard': typeof DashboardRoute
   '/landing': typeof LandingRoute
+  '/pull-requests': typeof PullRequestsRoute
+  '/repositories': typeof RepositoriesRoute
+  '/settings': typeof SettingsRoute
+  '/stored': typeof StoredRoute
   '/auth/callback': typeof AuthCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/landing' | '/auth/callback'
+  fullPaths:
+    | '/'
+    | '/analysis'
+    | '/dashboard'
+    | '/landing'
+    | '/pull-requests'
+    | '/repositories'
+    | '/settings'
+    | '/stored'
+    | '/auth/callback'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/landing' | '/auth/callback'
-  id: '__root__' | '/' | '/landing' | '/auth/callback'
+  to:
+    | '/'
+    | '/analysis'
+    | '/dashboard'
+    | '/landing'
+    | '/pull-requests'
+    | '/repositories'
+    | '/settings'
+    | '/stored'
+    | '/auth/callback'
+  id:
+    | '__root__'
+    | '/'
+    | '/analysis'
+    | '/dashboard'
+    | '/landing'
+    | '/pull-requests'
+    | '/repositories'
+    | '/settings'
+    | '/stored'
+    | '/auth/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AnalysisRoute: typeof AnalysisRoute
+  DashboardRoute: typeof DashboardRoute
   LandingRoute: typeof LandingRoute
+  PullRequestsRoute: typeof PullRequestsRoute
+  RepositoriesRoute: typeof RepositoriesRoute
+  SettingsRoute: typeof SettingsRoute
+  StoredRoute: typeof StoredRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/stored': {
+      id: '/stored'
+      path: '/stored'
+      fullPath: '/stored'
+      preLoaderRoute: typeof StoredRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/repositories': {
+      id: '/repositories'
+      path: '/repositories'
+      fullPath: '/repositories'
+      preLoaderRoute: typeof RepositoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pull-requests': {
+      id: '/pull-requests'
+      path: '/pull-requests'
+      fullPath: '/pull-requests'
+      preLoaderRoute: typeof PullRequestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/landing': {
       id: '/landing'
       path: '/landing'
       fullPath: '/landing'
       preLoaderRoute: typeof LandingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analysis': {
+      id: '/analysis'
+      path: '/analysis'
+      fullPath: '/analysis'
+      preLoaderRoute: typeof AnalysisRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -87,7 +217,13 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AnalysisRoute: AnalysisRoute,
+  DashboardRoute: DashboardRoute,
   LandingRoute: LandingRoute,
+  PullRequestsRoute: PullRequestsRoute,
+  RepositoriesRoute: RepositoriesRoute,
+  SettingsRoute: SettingsRoute,
+  StoredRoute: StoredRoute,
   AuthCallbackRoute: AuthCallbackRoute,
 }
 export const routeTree = rootRouteImport
