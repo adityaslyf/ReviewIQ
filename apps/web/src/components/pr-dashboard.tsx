@@ -275,6 +275,9 @@ export function PRDashboard() {
               Showing PRs from: <code className="bg-gray-100 px-2 py-1 rounded">{selectedRepo.owner}/{selectedRepo.repo}</code>
             </div>
           )}
+          <div className="mt-2 text-xs text-gray-500">
+            💡 Tip: You can analyze any public repository's pull requests for AI suggestions
+          </div>
         </CardContent>
       </Card>
 

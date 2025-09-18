@@ -1,0 +1,113 @@
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import Cookies from "js-cookie";
+
+export const Route = createFileRoute("/auth/callback")({
+  component: AuthCallback,
+});
+
+function AuthCallback() {
+  const navigate = useNavigate();
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [error, setError] = useState<string>('');
+
+  useEffect(() => {
+    const handleCallback = async () => {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        const error = urlParams.get('error');
+
+        if (error) {
+          setError(`GitHub authentication failed: ${error}`);
+          setStatus('error');
+          return;
+        }
+
+        if (!code) {
+          setError('No authorization code received from GitHub');
+          setStatus('error');
+          return;
+        }
+
+        // Exchange code for access token
+        const response = await fetch('http://localhost:3000/api/auth/github', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ code }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to authenticate with GitHub');
+        }
+
+        const { access_token } = await response.json();
+        
+        // Store token in cookie
+        Cookies.set('github_token', access_token, { expires: 30 }); // 30 days
+        
+        setStatus('success');
+        
+        // Redirect to main page after a short delay
+        setTimeout(() => {
+          navigate({ to: '/' });
+        }, 2000);
+
+      } catch (err) {
+        console.error('Authentication error:', err);
+        setError(err instanceof Error ? err.message : 'Authentication failed');
+        setStatus('error');
+      }
+    };
+
+    handleCallback();
+  }, [navigate]);
+
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Authenticating with GitHub...</h2>
+          <p className="text-gray-600">Please wait while we complete your authentication.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <h2 className="font-bold">Authentication Failed</h2>
+            <p className="text-sm">{error}</p>
+          </div>
+          <button
+            onClick={() => navigate({ to: '/' })}
+            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
+          >
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+          <h2 className="font-bold">Authentication Successful!</h2>
+          <p className="text-sm">You have been successfully authenticated with GitHub.</p>
+        </div>
+        <p className="text-gray-600">Redirecting to dashboard...</p>
+      </div>
+    </div>
+  );
+}
+
+

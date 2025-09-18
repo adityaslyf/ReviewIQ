@@ -78,12 +78,14 @@ app.get("/api/github/status", async (_req, res) => {
     console.log("Checking GitHub App status...");
     
     // Check environment variables
-        const envCheck = {
-          GITHUB_APP_ID: process.env.GITHUB_APP_ID ? "✓ Set" : "✗ Missing",
-          GITHUB_PRIVATE_KEY: process.env.GITHUB_PRIVATE_KEY ? "✓ Set" : "✗ Missing", 
-          GITHUB_WEBHOOK_SECRET: process.env.GITHUB_WEBHOOK_SECRET ? "✓ Set" : "✗ Missing",
-          GEMINI_API_KEY: process.env.GEMINI_API_KEY ? "✓ Set" : "✗ Missing"
-        };
+            const envCheck = {
+              GITHUB_APP_ID: process.env.GITHUB_APP_ID ? "✓ Set" : "✗ Missing",
+              GITHUB_PRIVATE_KEY: process.env.GITHUB_PRIVATE_KEY ? "✓ Set" : "✗ Missing", 
+              GITHUB_WEBHOOK_SECRET: process.env.GITHUB_WEBHOOK_SECRET ? "✓ Set" : "✗ Missing",
+              GITHUB_OAUTH_CLIENT_ID: process.env.GITHUB_OAUTH_CLIENT_ID ? "✓ Set" : "✗ Missing",
+              GITHUB_OAUTH_CLIENT_SECRET: process.env.GITHUB_OAUTH_CLIENT_SECRET ? "✓ Set" : "✗ Missing",
+              GEMINI_API_KEY: process.env.GEMINI_API_KEY ? "✓ Set" : "✗ Missing"
+            };
 
 
     // Try to initialize GitHub service
@@ -383,6 +385,49 @@ app.post("/api/analyze-pr", async (req, res) => {
     console.error("Error analyzing PR:", error);
     res.status(500).json({ 
       error: "Failed to analyze PR", 
+      details: error?.message || 'Unknown error' 
+    });
+  }
+});
+
+// GitHub OAuth callback endpoint
+app.post("/api/auth/github", async (req, res) => {
+  try {
+    const { code } = req.body;
+    
+    if (!code) {
+      return res.status(400).json({ error: "Authorization code is required" });
+    }
+
+        // Exchange code for access token
+        const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
+          method: "POST",
+          headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            client_id: process.env.GITHUB_OAUTH_CLIENT_ID,
+            client_secret: process.env.GITHUB_OAUTH_CLIENT_SECRET,
+            code: code,
+          }),
+        });
+
+    if (!tokenResponse.ok) {
+      throw new Error("Failed to exchange code for token");
+    }
+
+    const tokenData = await tokenResponse.json();
+    
+    if (tokenData.error) {
+      throw new Error(tokenData.error_description || "OAuth error");
+    }
+
+    res.json({ access_token: tokenData.access_token });
+  } catch (error: any) {
+    console.error("GitHub OAuth error:", error);
+    res.status(500).json({ 
+      error: "Authentication failed", 
       details: error?.message || 'Unknown error' 
     });
   }
