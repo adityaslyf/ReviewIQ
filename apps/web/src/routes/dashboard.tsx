@@ -33,10 +33,10 @@ function DashboardContent() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
+          <p className="text-gray-300">Loading...</p>
         </div>
       </div>
     );
@@ -47,16 +47,16 @@ function DashboardContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-black">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-black border-b border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-6">
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-              <BarChart3 className="h-8 w-8 text-blue-600" />
+            <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+              <BarChart3 className="h-8 w-8 text-blue-400" />
               ReviewIQ Dashboard
             </h1>
-            <p className="mt-2 text-gray-600">
+            <p className="mt-2 text-gray-300">
               Manage your pull requests and AI analysis workflow
             </p>
           </div>
@@ -69,20 +69,20 @@ function DashboardContent() {
           
           {/* Pull Requests Section */}
           <Link to="/pull-requests">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-green-500">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer bg-black border-l-4 border-l-green-500">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-3 mb-3">
-                      <GitPullRequest className="h-8 w-8 text-green-600" />
-                      <h2 className="text-xl font-semibold text-gray-900">Pull Requests</h2>
+                      <GitPullRequest className="h-8 w-8 text-green-400" />
+                      <h2 className="text-xl font-semibold text-white">Pull Requests</h2>
                     </div>
-                    <p className="text-gray-600 mb-4">
+                    <p className="text-gray-300 mb-4">
                       Browse and manage pull requests from GitHub repositories
                     </p>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">GitHub Integration</Badge>
-                      <Badge variant="outline" className="text-xs">Real-time</Badge>
+                      <Badge variant="outline" className="text-xs text-green-400 border-green-400">GitHub Integration</Badge>
+                      <Badge variant="outline" className="text-xs text-green-400 border-green-400">Real-time</Badge>
                     </div>
                   </div>
                   <ArrowRight className="h-5 w-5 text-gray-400" />
@@ -93,20 +93,20 @@ function DashboardContent() {
 
           {/* AI Analysis Section */}
           <Link to="/analysis">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-purple-500">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer bg-black border-l-4 border-l-purple-500">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-3 mb-3">
-                      <Brain className="h-8 w-8 text-purple-600" />
-                      <h2 className="text-xl font-semibold text-gray-900">AI Analysis</h2>
+                      <Brain className="h-8 w-8 text-purple-400" />
+                      <h2 className="text-xl font-semibold text-white">AI Analysis</h2>
                     </div>
-                    <p className="text-gray-600 mb-4">
+                    <p className="text-gray-300 mb-4">
                       View detailed AI-powered code review results and insights
                     </p>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">Gemini AI</Badge>
-                      <Badge variant="outline" className="text-xs">Static Analysis</Badge>
+                      <Badge variant="outline" className="text-xs text-purple-400 border-purple-400">Gemini AI</Badge>
+                      <Badge variant="outline" className="text-xs text-purple-400 border-purple-400">Static Analysis</Badge>
                     </div>
                   </div>
                   <ArrowRight className="h-5 w-5 text-gray-400" />
@@ -117,20 +117,20 @@ function DashboardContent() {
 
           {/* Repository Management */}
           <Link to="/repositories">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-blue-500">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer bg-black border-l-4 border-l-blue-500">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-3 mb-3">
-                      <Github className="h-8 w-8 text-blue-600" />
-                      <h2 className="text-xl font-semibold text-gray-900">Repositories</h2>
+                      <Github className="h-8 w-8 text-blue-400" />
+                      <h2 className="text-xl font-semibold text-white">Repositories</h2>
                     </div>
-                    <p className="text-gray-600 mb-4">
+                    <p className="text-gray-300 mb-4">
                       Connect and manage GitHub repositories for analysis
                     </p>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">OAuth</Badge>
-                      <Badge variant="outline" className="text-xs">Private Repos</Badge>
+                      <Badge variant="outline" className="text-xs text-blue-400 border-blue-400">OAuth</Badge>
+                      <Badge variant="outline" className="text-xs text-blue-400 border-blue-400">Private Repos</Badge>
                     </div>
                   </div>
                   <ArrowRight className="h-5 w-5 text-gray-400" />
@@ -141,20 +141,20 @@ function DashboardContent() {
 
           {/* Stored Data */}
           <Link to="/stored">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-amber-500">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer bg-black border-l-4 border-l-amber-500">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-3 mb-3">
-                      <Database className="h-8 w-8 text-amber-600" />
-                      <h2 className="text-xl font-semibold text-gray-900">Stored Data</h2>
+                      <Database className="h-8 w-8 text-amber-400" />
+                      <h2 className="text-xl font-semibold text-white">Stored Data</h2>
                     </div>
-                    <p className="text-gray-600 mb-4">
+                    <p className="text-gray-300 mb-4">
                       View historical analysis results and webhook data
                     </p>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">PostgreSQL</Badge>
-                      <Badge variant="outline" className="text-xs">Webhooks</Badge>
+                      <Badge variant="outline" className="text-xs text-amber-400 border-amber-400">PostgreSQL</Badge>
+                      <Badge variant="outline" className="text-xs text-amber-400 border-amber-400">Webhooks</Badge>
                     </div>
                   </div>
                   <ArrowRight className="h-5 w-5 text-gray-400" />
@@ -165,20 +165,20 @@ function DashboardContent() {
 
           {/* Settings */}
           <Link to="/settings">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-gray-500">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer bg-black border-l-4 border-l-gray-500">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-3 mb-3">
-                      <Settings className="h-8 w-8 text-gray-600" />
-                      <h2 className="text-xl font-semibold text-gray-900">Settings</h2>
+                      <Settings className="h-8 w-8 text-gray-400" />
+                      <h2 className="text-xl font-semibold text-white">Settings</h2>
                     </div>
-                    <p className="text-gray-600 mb-4">
+                    <p className="text-gray-300 mb-4">
                       Configure GitHub App, API keys, and preferences
                     </p>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">Configuration</Badge>
-                      <Badge variant="outline" className="text-xs">API Keys</Badge>
+                      <Badge variant="outline" className="text-xs text-gray-400 border-gray-400">Configuration</Badge>
+                      <Badge variant="outline" className="text-xs text-gray-400 border-gray-400">API Keys</Badge>
                     </div>
                   </div>
                   <ArrowRight className="h-5 w-5 text-gray-400" />
@@ -188,19 +188,19 @@ function DashboardContent() {
           </Link>
 
           {/* Analytics */}
-          <Card className="border-l-4 border-l-indigo-500 opacity-75">
+          <Card className="bg-black border-l-4 border-l-indigo-500 opacity-75">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-3 mb-3">
-                    <BarChart3 className="h-8 w-8 text-indigo-600" />
-                    <h2 className="text-xl font-semibold text-gray-900">Analytics</h2>
+                    <BarChart3 className="h-8 w-8 text-indigo-400" />
+                    <h2 className="text-xl font-semibold text-white">Analytics</h2>
                   </div>
-                  <p className="text-gray-600 mb-4">
+                  <p className="text-gray-300 mb-4">
                     View usage statistics and analysis trends
                   </p>
                   <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
+                    <Badge variant="outline" className="text-xs text-indigo-400 border-indigo-400">Coming Soon</Badge>
                   </div>
                 </div>
               </div>
@@ -210,30 +210,30 @@ function DashboardContent() {
 
         {/* Quick Stats */}
         <div className="mt-12">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Overview</h3>
+          <h3 className="text-lg font-semibold text-white mb-4">Quick Overview</h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
+            <Card className="bg-black">
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-green-600">0</div>
-                <div className="text-sm text-gray-600">Active PRs</div>
+                <div className="text-2xl font-bold text-green-400">0</div>
+                <div className="text-sm text-gray-300">Active PRs</div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-black">
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-purple-600">0</div>
-                <div className="text-sm text-gray-600">AI Analyses</div>
+                <div className="text-2xl font-bold text-purple-400">0</div>
+                <div className="text-sm text-gray-300">AI Analyses</div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-black">
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-blue-600">0</div>
-                <div className="text-sm text-gray-600">Repositories</div>
+                <div className="text-2xl font-bold text-blue-400">0</div>
+                <div className="text-sm text-gray-300">Repositories</div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-black">
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-amber-600">0</div>
-                <div className="text-sm text-gray-600">Stored Records</div>
+                <div className="text-2xl font-bold text-amber-400">0</div>
+                <div className="text-sm text-gray-300">Stored Records</div>
               </CardContent>
             </Card>
           </div>

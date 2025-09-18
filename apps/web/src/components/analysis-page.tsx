@@ -347,7 +347,7 @@ export function AnalysisPage() {
           <div className="grid grid-cols-12 gap-8">
             {/* PR Info Sidebar */}
             <div className="col-span-3">
-              <Card>
+              <Card className="border border-gray-200 bg-white">
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
                     <GitPullRequest className="h-5 w-5 text-green-600" />
@@ -392,7 +392,7 @@ export function AnalysisPage() {
 
             {/* Analysis Content */}
             <div className="col-span-9">
-              <Card>
+              <Card className="border border-gray-200 bg-white">
                 <CardContent className="p-6">
                   {renderAIAnalysis(selectedPR)}
                 </CardContent>
@@ -419,16 +419,16 @@ export function AnalysisPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {analyzedPRs.map((pr) => (
-                  <Card key={`${pr.repo}-${pr.number}`} className="hover:shadow-lg transition-shadow">
+                  <Card key={`${pr.repo}-${pr.number}`} className="hover:shadow-lg transition-shadow border border-gray-200 bg-white">
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-2">
                           <GitPullRequest className="h-4 w-4 text-green-600" />
-                          <Badge variant="default" className="bg-green-500 text-white text-xs">
+                          <Badge className="bg-green-100 text-green-800 text-xs border border-green-200">
                             AI Analyzed
                           </Badge>
                         </div>
-                        <Badge variant="outline" className="text-xs">#{pr.number}</Badge>
+                        <Badge variant="outline" className="text-xs border-gray-300 text-gray-700">#{pr.number}</Badge>
                       </div>
 
                       <h3 className="font-semibold text-gray-900 mb-3 line-clamp-2">
@@ -445,7 +445,7 @@ export function AnalysisPage() {
                           <span>{new Date(pr.createdAt).toLocaleDateString()}</span>
                         </div>
                         <div>
-                          <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                          <code className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded border">
                             {pr.repo}
                           </code>
                         </div>
@@ -456,7 +456,7 @@ export function AnalysisPage() {
                           href={pr.url || `https://github.com/${pr.repo}/pull/${pr.number}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                          className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium"
                         >
                           View <ExternalLink className="h-3 w-3" />
                         </a>
@@ -465,7 +465,7 @@ export function AnalysisPage() {
                           to="/analysis"
                           search={{ repo: pr.repo, number: pr.number }}
                         >
-                          <Button size="sm" className="text-xs">
+                          <Button size="sm" className="text-xs bg-purple-600 hover:bg-purple-700 text-white">
                             <Brain className="h-3 w-3 mr-1" />
                             View Analysis
                           </Button>
