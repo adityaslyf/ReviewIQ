@@ -99,10 +99,14 @@ export class GeminiService {
     prDescription: string,
     diff: string,
     changedFiles: Array<{ filename: string; additions: number; deletions: number; changes: number }>,
-    enableMultiPass: boolean = false
+    enableMultiPass: boolean = false,
+    enableStaticAnalysis: boolean = false
   ): Promise<AIAnalysisResult> {
     try {
-      if (enableMultiPass) {
+      if (enableStaticAnalysis) {
+        // Static analysis enhanced AI review
+        return await this.runStaticEnhancedAnalysis(prTitle, prDescription, diff, changedFiles);
+      } else if (enableMultiPass) {
         // Simple, focused code analysis for better recommendations
         const prompt = this.buildFocusedCodePrompt(prTitle, prDescription, diff, changedFiles);
         
@@ -127,6 +131,138 @@ export class GeminiService {
     }
   }
 
+  private async runStaticEnhancedAnalysis(
+    prTitle: string,
+    prDescription: string,
+    diff: string,
+    changedFiles: Array<{ filename: string; additions: number; deletions: number; changes: number }>
+  ): Promise<AIAnalysisResult> {
+    // Import static analysis service
+    const { getStaticAnalysisService } = await import('./static-analysis');
+    const staticAnalysisService = getStaticAnalysisService();
+    
+    // Extract file contents from diff
+    const fileContents = staticAnalysisService.extractFileContents(diff);
+    
+    // Run static analysis
+    const staticResults = await staticAnalysisService.analyzeCode(fileContents);
+    
+    // Build enhanced prompt with static analysis context
+    const prompt = this.buildStaticEnhancedPrompt(
+      prTitle, 
+      prDescription, 
+      diff, 
+      changedFiles, 
+      staticResults
+    );
+    
+    const result = await this.model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    
+    // Parse with static analysis context
+    const aiResult = this.parseAIResponse(text);
+    
+    // Enhance the result with static analysis data
+    return {
+      ...aiResult,
+      detailedAnalysis: {
+        ...aiResult.detailedAnalysis,
+        overview: `${aiResult.detailedAnalysis?.overview || aiResult.summary} [Static Analysis: ${staticResults.summary.totalIssues} issues found by ${staticResults.summary.toolsRun.join(', ')}]`,
+        codeSuggestions: [
+          ...(aiResult.detailedAnalysis?.codeSuggestions || []),
+          ...this.convertStaticIssuesToSuggestions(staticResults.issues)
+        ],
+        securityConcerns: [
+          ...(aiResult.detailedAnalysis?.securityConcerns || []),
+          ...staticResults.issues
+            .filter(issue => issue.category === 'security')
+            .map(issue => `${issue.file}:${issue.line} - ${issue.message} (${issue.rule})`)
+        ]
+      },
+      staticAnalysisResults: staticResults
+    };
+  }
+
+  private buildStaticEnhancedPrompt(
+    prTitle: string,
+    prDescription: string,
+    diff: string,
+    changedFiles: Array<{ filename: string; additions: number; deletions: number; changes: number }>,
+    staticResults: any
+  ): string {
+    const fileSummary = changedFiles.map(file => 
+      `- ${file.filename}: +${file.additions} -${file.deletions}`
+    ).join('\n');
+
+    const staticIssuesSummary = staticResults.issues.length > 0 
+      ? `\nSTATIC ANALYSIS FINDINGS (${staticResults.issues.length} issues):\n${
+          staticResults.issues.slice(0, 10).map((issue: any) => 
+            `- ${issue.file}:${issue.line} [${issue.severity}] ${issue.message} (${issue.rule})`
+          ).join('\n')
+        }${staticResults.issues.length > 10 ? '\n... and more' : ''}`
+      : '\nSTATIC ANALYSIS: No issues found';
+
+    return `You are a senior software engineer. You have static analysis results to help guide your review.
+
+PR: ${prTitle}
+Files: ${fileSummary}${staticIssuesSummary}
+
+Code Changes:
+\`\`\`diff
+${diff}
+\`\`\`
+
+The static analysis tools found ${staticResults.summary.totalIssues} issues. Use these findings to provide deeper insights.
+
+Focus on:
+1. **Validate Static Findings**: Confirm if static analysis issues are real problems
+2. **Find Additional Issues**: Look for problems static analysis missed
+3. **Provide Context**: Explain WHY issues matter and HOW to fix them
+4. **Code Improvements**: Suggest better patterns and practices
+
+Respond with ONLY valid JSON:
+{
+  "summary": "What this PR does",
+  "refactorSuggestions": "Specific improvements with code examples",
+  "potentialIssues": "Critical issues to address",
+  "detailedAnalysis": {
+    "overview": "Technical analysis including static analysis insights",
+    "codeSuggestions": [
+      {
+        "file": "filename",
+        "line": 42,
+        "original": "problematic code",
+        "suggested": "improved code",
+        "reason": "why this improves the code",
+        "severity": "HIGH|MEDIUM|LOW",
+        "category": "Security|Performance|Logic|Style"
+      }
+    ],
+    "securityConcerns": ["Security issues found"],
+    "performanceImpact": "Performance analysis",
+    "testingRecommendations": ["Testing suggestions"],
+    "architecturalNotes": ["Architecture observations"]
+  }
+}`;
+  }
+
+  private convertStaticIssuesToSuggestions(issues: any[]): any[] {
+    return issues
+      .filter(issue => issue.severity === 'error' || issue.severity === 'warning')
+      .slice(0, 5) // Limit to top 5 static issues
+      .map(issue => ({
+        file: issue.file,
+        line: issue.line,
+        original: `// ${issue.rule} violation detected`,
+        suggested: `// Fix: ${issue.message}`,
+        reason: `Static analysis (${issue.tool}) found: ${issue.message}. Rule: ${issue.rule}`,
+        severity: issue.severity === 'error' ? 'HIGH' : 'MEDIUM',
+        category: issue.category === 'security' ? 'Security' : 
+                 issue.category === 'performance' ? 'Performance' : 'Logic'
+      }));
+  }
+
   private buildFocusedCodePrompt(
     prTitle: string,
     prDescription: string,
@@ -137,47 +273,63 @@ export class GeminiService {
       `- ${file.filename}: +${file.additions} -${file.deletions}`
     ).join('\n');
 
-    return `You are a senior software engineer reviewing code. Focus on finding actual code issues and providing specific improvements.
+    return `You are a **senior software engineer** performing a **code review** on a GitHub Pull Request. 
+Act like a highly experienced reviewer: focus on correctness, maintainability, performance, scalability, security, and best practices. 
+Be strict but constructive, and provide actionable, detailed insights.
 
-PR: ${prTitle}
-Description: ${prDescription || 'No description'}
-
-Files: ${fileSummary}
-
-Code Changes:
+---
+## PR Context
+- **Title:** ${prTitle}
+- **Description:** ${prDescription || 'No description provided'}
+- **Changed Files:** ${fileSummary}  
+- **Diff:**  
 \`\`\`diff
 ${diff}
 \`\`\`
+---
 
-Find and fix:
-1. **Bugs & Logic Errors**: Null pointer exceptions, off-by-one errors, race conditions
-2. **Security Issues**: SQL injection, XSS, authentication flaws, input validation
-3. **Performance Problems**: N+1 queries, inefficient algorithms, memory leaks
-4. **Code Quality**: Readability, error handling, code duplication
+## Review Tasks
+1. **Summarize Intent**  
+   - Explain what this PR is trying to achieve in simple words.  
 
-Respond with ONLY this JSON structure:
+2. **Potential Issues**  
+   - Detect possible **bugs, logic flaws, performance bottlenecks, and security vulnerabilities**.  
+   - Flag risky patterns (e.g., N+1 queries, hardcoded secrets, race conditions, memory leaks).  
+
+3. **Refactor Suggestions**  
+   - Suggest **clear, practical improvements** (e.g., extract methods, reduce duplication, improve naming, follow SOLID/DRY/KISS).  
+   - Include rationale for each suggestion.  
+
+4. **Testing Recommendations**  
+   - Identify **missing or weak test coverage**.  
+   - Suggest **specific test cases** that should be added.  
+
+5. **Best Practices**  
+   - Point out violations of coding conventions, style, or architectural patterns.  
+   - Recommend frameworks or library best practices (security headers, async handling, error management).  
+
+6. **Final Review Verdict**  
+   - State whether this PR is **safe to merge**, needs **minor changes**, or requires **major fixes**.  
+
+---
+## Output Format (Strict JSON)
+Return the result in this JSON format:
+
 {
-  "summary": "What this PR does",
-  "refactorSuggestions": "**Issue (SEVERITY):** Description\\n- Problem in code\\n- Better solution\\n- Why it's better",
-  "potentialIssues": "**Problem (SEVERITY):** Description\\n- What could go wrong\\n- Where the issue is\\n- How to fix it",
-  "detailedAnalysis": {
-    "overview": "Technical summary of changes",
-    "codeSuggestions": [
-      {
-        "file": "actual/file/path",
-        "line": 25,
-        "original": "current code from diff",
-        "suggested": "improved code",
-        "reason": "specific improvement explanation",
-        "severity": "HIGH|MEDIUM|LOW",
-        "category": "Security|Performance|Logic|Style"
-      }
-    ],
-    "securityConcerns": ["Real security issues found"],
-    "performanceImpact": "Performance analysis",
-    "testingRecommendations": ["Specific tests needed"],
-    "architecturalNotes": ["Code structure notes"]
-  }
+  "summary": "<2-3 sentence high-level summary>",
+  "potentialIssues": [
+    { "file": "<filename>", "line": <line_number>, "issue": "<detailed issue description>", "severity": "low|medium|high" }
+  ],
+  "refactorSuggestions": [
+    { "file": "<filename>", "line": <line_number>, "suggestion": "<actionable improvement>", "rationale": "<why>" }
+  ],
+  "testRecommendations": [
+    { "file": "<filename>", "suggestion": "<missing test or edge case>" }
+  ],
+  "bestPractices": [
+    { "file": "<filename>", "suggestion": "<improvement for maintainability or readability>" }
+  ],
+  "finalVerdict": "safe|minor_changes|major_fixes"
 }`;
   }
 
@@ -190,18 +342,67 @@ Respond with ONLY this JSON structure:
       const cleanedResponse = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const parsed = JSON.parse(cleanedResponse);
       
-      // Ensure we have the required structure
+      // Convert the new format to our existing structure
+      const codeSuggestions = [
+        // Convert refactor suggestions
+        ...(parsed.refactorSuggestions || []).map((item: any) => ({
+          file: item.file,
+          line: item.line || 1,
+          original: "// Refactoring opportunity",
+          suggested: item.suggestion,
+          reason: item.rationale || item.suggestion,
+          severity: "MEDIUM" as const,
+          category: "Refactoring" as const
+        })),
+        // Convert potential issues
+        ...(parsed.potentialIssues || []).map((item: any) => ({
+          file: item.file,
+          line: item.line || 1,
+          original: "// Issue detected",
+          suggested: "// Fix required",
+          reason: item.issue,
+          severity: item.severity?.toUpperCase() || "MEDIUM" as const,
+          category: "Logic" as const
+        })),
+        // Convert best practices
+        ...(parsed.bestPractices || []).map((item: any) => ({
+          file: item.file,
+          line: 1,
+          original: "// Best practice opportunity",
+          suggested: item.suggestion,
+          reason: item.suggestion,
+          severity: "LOW" as const,
+          category: "Style" as const
+        }))
+      ];
+
+      // Format suggestions and issues as text
+      const refactorText = (parsed.refactorSuggestions || [])
+        .map((item: any) => `**${item.file} (MEDIUM):** ${item.suggestion}\n- ${item.rationale}`)
+        .join('\n\n');
+
+      const issuesText = (parsed.potentialIssues || [])
+        .map((item: any) => `**${item.file} (${item.severity?.toUpperCase() || 'MEDIUM'}):** ${item.issue}`)
+        .join('\n\n');
+
       return {
         summary: parsed.summary || "Code analysis completed",
-        refactorSuggestions: parsed.refactorSuggestions || "No refactoring suggestions",
-        potentialIssues: parsed.potentialIssues || "No critical issues found",
-        detailedAnalysis: parsed.detailedAnalysis || {
-          overview: parsed.summary || "Analysis overview",
-          codeSuggestions: parsed.detailedAnalysis?.codeSuggestions || [],
-          securityConcerns: parsed.detailedAnalysis?.securityConcerns || [],
-          performanceImpact: parsed.detailedAnalysis?.performanceImpact || "No performance impact identified",
-          testingRecommendations: parsed.detailedAnalysis?.testingRecommendations || [],
-          architecturalNotes: parsed.detailedAnalysis?.architecturalNotes || []
+        refactorSuggestions: refactorText || "No refactoring suggestions",
+        potentialIssues: issuesText || "No critical issues found",
+        detailedAnalysis: {
+          overview: `${parsed.summary || "Analysis overview"} | Final Verdict: ${parsed.finalVerdict || 'review_required'}`,
+          codeSuggestions,
+          securityConcerns: (parsed.potentialIssues || [])
+            .filter((item: any) => item.issue?.toLowerCase().includes('security') || item.severity === 'high')
+            .map((item: any) => `${item.file}: ${item.issue}`),
+          performanceImpact: (parsed.potentialIssues || [])
+            .filter((item: any) => item.issue?.toLowerCase().includes('performance'))
+            .map((item: any) => item.issue)
+            .join('. ') || "No specific performance issues identified",
+          testingRecommendations: (parsed.testRecommendations || [])
+            .map((item: any) => `${item.file}: ${item.suggestion}`),
+          architecturalNotes: (parsed.bestPractices || [])
+            .map((item: any) => `${item.file}: ${item.suggestion}`)
         }
       };
     } catch (error) {

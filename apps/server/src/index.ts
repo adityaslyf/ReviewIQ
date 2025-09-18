@@ -135,7 +135,7 @@ app.post("/api/reanalyze-pr/:prId", async (req, res) => {
     const { GeminiService } = await import("./services/gemini");
     
     const prId = parseInt(req.params.prId);
-    const { enableMultiPass = false } = req.body;
+    const { enableMultiPass = false, enableStaticAnalysis = false } = req.body;
     
     if (!process.env.GEMINI_API_KEY) {
       return res.status(500).json({ error: "GEMINI_API_KEY not configured" });
@@ -185,7 +185,8 @@ app.post("/api/reanalyze-pr/:prId", async (req, res) => {
           deletions: file.deletions,
           changes: file.changes
         })),
-        enableMultiPass
+        enableMultiPass,
+        enableStaticAnalysis
       );
 
       console.log(`Analysis completed for PR #${prData.number}: ${analysisResult.detailedAnalysis ? 'with detailed analysis' : 'basic analysis only'}`);
@@ -197,8 +198,8 @@ app.post("/api/reanalyze-pr/:prId", async (req, res) => {
           refactorSuggestions: analysisResult.refactorSuggestions,
           potentialIssues: analysisResult.potentialIssues,
           detailedAnalysis: analysisResult.detailedAnalysis ? JSON.stringify(analysisResult.detailedAnalysis) : null,
-          multiPassAnalysis: analysisResult.multiPassAnalysis ? JSON.stringify(analysisResult.multiPassAnalysis) : null,
-          analysisMode: enableMultiPass ? "multi-pass" : "single-pass",
+          staticAnalysisResults: (analysisResult as any).staticAnalysisResults ? JSON.stringify((analysisResult as any).staticAnalysisResults) : null,
+          analysisMode: enableStaticAnalysis ? "static-enhanced" : enableMultiPass ? "multi-pass" : "single-pass",
           analysisStatus: "completed"
         })
         .where(eq(schema.aiSuggestions.pullRequestId, prId));
@@ -251,9 +252,8 @@ app.get("/api/pull-requests-with-ai", async (_req, res) => {
     const groupedPRs = prsWithAI.reduce((acc: Record<string, unknown>, row: { pr: any; ai: any }) => {
       const prId = row.pr.id;
       if (!acc[prId]) {
-        // Parse the detailedAnalysis and multiPassAnalysis JSON if they exist
+        // Parse the detailedAnalysis JSON if it exists
         let detailedAnalysis = null;
-        let multiPassAnalysis = null;
         
         if (row.ai?.detailedAnalysis) {
           try {
@@ -264,21 +264,12 @@ app.get("/api/pull-requests-with-ai", async (_req, res) => {
           }
         }
 
-        if (row.ai?.multiPassAnalysis) {
-          try {
-            multiPassAnalysis = JSON.parse(row.ai.multiPassAnalysis);
-          } catch (error) {
-            console.error("Error parsing multi-pass analysis JSON:", error);
-            multiPassAnalysis = null;
-          }
-        }
 
         acc[prId] = {
           ...row.pr,
           aiSuggestions: row.ai ? {
             ...row.ai,
-            detailedAnalysis,
-            multiPassAnalysis
+            detailedAnalysis
           } : null
         };
       }
@@ -380,7 +371,7 @@ app.get("/api/github/pull-requests", async (req, res) => {
 // Analyze a specific GitHub PR with AI
 app.post("/api/analyze-pr", async (req, res) => {
   try {
-    const { owner, repo, prNumber, userToken, enableMultiPass = false } = req.body;
+    const { owner, repo, prNumber, userToken, enableMultiPass = false, enableStaticAnalysis = false } = req.body;
     
     if (!owner || !repo || !prNumber || !userToken) {
       return res.status(400).json({ error: "Owner, repo, prNumber, and userToken are required" });
@@ -443,7 +434,8 @@ app.post("/api/analyze-pr", async (req, res) => {
               deletions: file.deletions,
               changes: file.changes
             })),
-            enableMultiPass
+            enableMultiPass,
+            enableStaticAnalysis
           );
 
           // Store AI analysis results
@@ -453,8 +445,8 @@ app.post("/api/analyze-pr", async (req, res) => {
             refactorSuggestions: analysisResult.refactorSuggestions,
             potentialIssues: analysisResult.potentialIssues,
             detailedAnalysis: analysisResult.detailedAnalysis ? JSON.stringify(analysisResult.detailedAnalysis) : null,
-            multiPassAnalysis: analysisResult.multiPassAnalysis ? JSON.stringify(analysisResult.multiPassAnalysis) : null,
-            analysisMode: enableMultiPass ? "multi-pass" : "single-pass",
+            staticAnalysisResults: (analysisResult as any).staticAnalysisResults ? JSON.stringify((analysisResult as any).staticAnalysisResults) : null,
+            analysisMode: enableStaticAnalysis ? "static-enhanced" : enableMultiPass ? "multi-pass" : "single-pass",
             analysisStatus: "completed"
           });
 
@@ -629,7 +621,7 @@ app.post("/api/test-multipass/:prId", async (req, res) => {
   }
 });
 
+
 app.listen(port, () => {
 	console.log(`Server is running on port ${port}`);
-  console.log(`🚀 Multi-pass analysis available! Use enableMultiPass=true in requests`);
 });

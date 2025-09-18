@@ -1,0 +1,1 @@
+ALTER TABLE "ai_suggestions" DROP COLUMN "multi_pass_analysis";

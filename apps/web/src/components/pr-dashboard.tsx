@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Checkbox } from "./ui/checkbox";
-import { ExternalLink, GitPullRequest, User, Calendar, Github, Brain, Wrench, AlertTriangle, CheckCircle, XCircle, Info } from "lucide-react";
+import { ExternalLink, GitPullRequest, User, Calendar, Github, Brain, Wrench, AlertTriangle, CheckCircle, XCircle, Info, Zap } from "lucide-react";
 import { useState } from "react";
 import { RepoSelector } from "./repo-selector";
 import { toast } from "sonner";
@@ -209,7 +209,8 @@ export function PRDashboard() {
           owner,
           repo: repoName,
           prNumber: pr.number,
-          userToken: token
+          userToken: token,
+          enableStaticAnalysis: true  // Enable static analysis for comprehensive review
         }),
       });
 
@@ -358,9 +359,9 @@ export function PRDashboard() {
                 <div className="flex items-center gap-2 mb-4">
                   <Brain className="h-4 w-4 text-purple-500" />
                   <span className="text-sm font-medium">CodeRabbit-Style Deep Analysis</span>
-                  <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700">
-                    Enhanced
-                  </Badge>
+                        <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700">
+                          {aiSuggestions.analysisMode === "static-enhanced" ? "Static Enhanced" : "Enhanced"}
+                        </Badge>
                 </div>
 
                 {/* Overview */}
@@ -369,6 +370,12 @@ export function PRDashboard() {
                     <h4 className="font-semibold text-purple-900 mb-2 flex items-center gap-2">
                       <Info className="h-4 w-4" />
                       Technical Overview
+                      {aiSuggestions.analysisMode === "static-enhanced" && (
+                        <Badge variant="outline" className="text-xs bg-blue-100 text-blue-700 border-blue-300">
+                          <Zap className="h-3 w-3 mr-1" />
+                          Static Analysis
+                        </Badge>
+                      )}
                     </h4>
                     <p className="text-sm text-purple-800 leading-relaxed">
                       {aiSuggestions.detailedAnalysis?.overview}
@@ -612,12 +619,12 @@ export function PRDashboard() {
                           {analyzingPRs.has(pr.number) ? (
                             <>
                               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                              Analyzing PR #{pr.number}...
+                              AI + Static Analysis...
                             </>
                           ) : (
                             <>
-                              <Brain className="h-4 w-4" />
-                              Analyze PR #{pr.number}
+                              <Zap className="h-4 w-4" />
+                              AI + Static Analysis
                             </>
                           )}
                         </button>

@@ -25,8 +25,8 @@ export const aiSuggestions = pgTable("ai_suggestions", {
   refactorSuggestions: text("refactor_suggestions"),
   potentialIssues: text("potential_issues"),
   detailedAnalysis: text("detailed_analysis"), // JSON string storing the detailed analysis
-  multiPassAnalysis: text("multi_pass_analysis"), // JSON string storing multi-pass analysis results
-  analysisMode: text("analysis_mode").default("single-pass"), // single-pass, multi-pass
+  staticAnalysisResults: text("static_analysis_results"), // JSON string storing static analysis results
+  analysisMode: text("analysis_mode").default("single-pass"), // single-pass, multi-pass, static-enhanced
   analysisStatus: text("analysis_status").default("pending"), // pending, completed, failed
   createdAt: timestamp("created_at").defaultNow(),
 });

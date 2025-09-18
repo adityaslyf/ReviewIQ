@@ -22,6 +22,20 @@
       "when": 1758225178488,
       "tag": "0002_careful_norman_osborn",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1758231510810,
+      "tag": "0003_supreme_jimmy_woo",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1758232271074,
+      "tag": "0004_lush_hedge_knight",
+      "breakpoints": true
     }
   ]
 }
