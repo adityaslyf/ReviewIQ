@@ -192,7 +192,6 @@ function DashboardContent() {
               </div>
             </BrutalistCard>
           </div>
-
         </div>
         </div>
       </section>
