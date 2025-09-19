@@ -50,9 +50,11 @@ function RootComponent() {
 				storageKey="vite-ui-theme"
 			>
 				<AuthProvider>
-					<div className="grid grid-rows-[auto_1fr] h-svh">
+					<div className="h-svh">
 						<Header />
-						{isFetching ? <Loader /> : <Outlet />}
+						<div className="pt-24">
+							{isFetching ? <Loader /> : <Outlet />}
+						</div>
 					</div>
 					<Toaster richColors />
 				</AuthProvider>
