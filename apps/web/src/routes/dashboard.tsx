@@ -55,31 +55,29 @@ function DashboardContent() {
       {/* Main Content */}
       <section className="relative overflow-hidden bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Brutalist Header Card */}
-        <div className="brutalist-card bg-white border-6 border-gray-600 shadow-[12px_12px_0_#6b7280] p-8 mb-8 w-full max-w-none transition-all duration-300 ease-out hover:transform hover:-translate-x-1 hover:-translate-y-1 hover:shadow-[17px_17px_0_#6b7280]">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-black text-black uppercase flex items-center gap-3 mb-4 relative overflow-hidden brutalist-card__title">
-                <BarChart3 className="h-8 w-8 text-gray-600" />
-                Welcome to ReviewIQ
-              </h1>
-              <p className="text-base leading-relaxed text-black">
-                Manage your pull requests and AI analysis workflow
-              </p>
+        {/* Clean Header Section */}
+        <div className="flex items-center justify-between mb-12">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3 mb-2">
+              <BarChart3 className="h-8 w-8 text-gray-600" />
+              Welcome to ReviewIQ
+            </h1>
+            <p className="text-gray-600">
+              Manage your pull requests and AI analysis workflow
+            </p>
+          </div>
+          <div className="flex items-center gap-12">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-gray-900">78</div>
+              <div className="text-sm text-gray-500 uppercase">Reviews</div>
             </div>
-            <div className="flex items-center gap-6">
-              <div className="text-center">
-                <div className="text-3xl font-black text-black">78</div>
-                <div className="text-sm text-gray-600 font-bold uppercase">Reviews</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-black text-black">56</div>
-                <div className="text-sm text-gray-600 font-bold uppercase">PRs</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-black text-black">203</div>
-                <div className="text-sm text-gray-600 font-bold uppercase">Projects</div>
-              </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-gray-900">56</div>
+              <div className="text-sm text-gray-500 uppercase">PRS</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-gray-900">203</div>
+              <div className="text-sm text-gray-500 uppercase">Projects</div>
             </div>
           </div>
         </div>
