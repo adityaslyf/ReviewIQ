@@ -28,24 +28,24 @@ export function RepositoriesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-black">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-black border-b border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-6">
             <div className="flex items-center gap-4">
               <Link to="/dashboard">
-                <Button variant="ghost" size="sm">
+                <Button variant="ghost" size="sm" className="text-gray-300 hover:text-white hover:bg-gray-800">
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Dashboard
                 </Button>
               </Link>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                  <Github className="h-8 w-8 text-blue-600" />
+                <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+                  <Github className="h-8 w-8 text-blue-400" />
                   Repository Management
                 </h1>
-                <p className="mt-1 text-gray-600">
+                <p className="mt-1 text-gray-300">
                   Connect and manage GitHub repositories for analysis
                 </p>
               </div>
@@ -59,9 +59,9 @@ export function RepositoriesPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Repository Selector */}
           <div>
-            <Card>
+            <Card className="bg-black border border-gray-700">
               <CardHeader>
-                <CardTitle>Select Repository</CardTitle>
+                <CardTitle className="text-white">Select Repository</CardTitle>
               </CardHeader>
               <CardContent>
                 <RepoSelector
@@ -76,23 +76,23 @@ export function RepositoriesPage() {
 
           {/* Repository Details */}
           <div>
-            <Card>
+            <Card className="bg-black border border-gray-700">
               <CardHeader>
-                <CardTitle>Repository Details</CardTitle>
+                <CardTitle className="text-white">Repository Details</CardTitle>
               </CardHeader>
               <CardContent>
                 {selectedRepo ? (
                   <div className="space-y-4">
                     <div>
-                      <h3 className="font-semibold text-lg">{selectedRepo.name}</h3>
-                      <p className="text-gray-600">{selectedRepo.full_name}</p>
+                      <h3 className="font-semibold text-lg text-white">{selectedRepo.name}</h3>
+                      <p className="text-gray-300">{selectedRepo.full_name}</p>
                     </div>
                     {selectedRepo.description && (
-                      <p className="text-gray-700">{selectedRepo.description}</p>
+                      <p className="text-gray-300">{selectedRepo.description}</p>
                     )}
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                    <div className="flex items-center gap-4 text-sm text-gray-300">
                       {selectedRepo.language && (
-                        <span className="bg-gray-100 px-2 py-1 rounded">
+                        <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded border border-gray-600">
                           {selectedRepo.language}
                         </span>
                       )}
@@ -101,7 +101,7 @@ export function RepositoriesPage() {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-gray-500">Select a repository to view details</p>
+                  <p className="text-gray-400">Select a repository to view details</p>
                 )}
               </CardContent>
             </Card>

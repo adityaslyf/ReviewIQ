@@ -305,33 +305,33 @@ export function AnalysisPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-black">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-black border-b border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <Link to="/dashboard">
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" className="text-gray-300 hover:text-white hover:bg-gray-800">
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Dashboard
                   </Button>
                 </Link>
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                    <Brain className="h-8 w-8 text-purple-600" />
+                  <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+                    <Brain className="h-8 w-8 text-purple-400" />
                     AI Analysis Results
                   </h1>
-                  <p className="mt-1 text-gray-600">
+                  <p className="mt-1 text-gray-300">
                     View detailed AI-powered code review insights
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Badge variant="outline">{analyzedPRs.length} Analyzed PRs</Badge>
+                <Badge variant="outline" className="text-gray-300 border-gray-600">{analyzedPRs.length} Analyzed PRs</Badge>
                 <Link to="/pull-requests">
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" className="text-gray-300 border-gray-600 hover:bg-gray-800 hover:text-white">
                     Browse PRs
                   </Button>
                 </Link>

@@ -203,50 +203,52 @@ export function PRBrowsePage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        <span className="ml-2">Loading pull requests...</span>
+      <div className="min-h-screen bg-black flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+        <span className="ml-2 text-gray-300">Loading pull requests...</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="text-center p-8">
-        <p className="text-red-600 mb-4">Error loading pull requests: {error.message}</p>
-        <Button onClick={() => refetch()}>Retry</Button>
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center p-8">
+          <p className="text-red-400 mb-4">Error loading pull requests: {error.message}</p>
+          <Button onClick={() => refetch()}>Retry</Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-black">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-black border-b border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <Link to="/dashboard">
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" className="text-gray-300 hover:text-white hover:bg-gray-800">
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Dashboard
                   </Button>
                 </Link>
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                    <GitPullRequest className="h-8 w-8 text-green-600" />
+                  <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+                    <GitPullRequest className="h-8 w-8 text-green-400" />
                     Pull Requests
                   </h1>
-                  <p className="mt-1 text-gray-600">
+                  <p className="mt-1 text-gray-300">
                     Browse and analyze pull requests from GitHub repositories
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Badge variant="outline">{searchFilteredPRs.length} PRs</Badge>
+                <Badge variant="outline" className="text-gray-300 border-gray-600">{searchFilteredPRs.length} PRs</Badge>
                 {analyzingPRs.size > 0 && (
-                  <Badge variant="secondary">Analyzing {analyzingPRs.size}</Badge>
+                  <Badge className="bg-purple-600 text-white">Analyzing {analyzingPRs.size}</Badge>
                 )}
               </div>
             </div>
@@ -260,10 +262,10 @@ export function PRBrowsePage() {
           <div className="col-span-3">
             <div className="space-y-6">
               {/* Source Selection */}
-              <Card className="border border-gray-200 bg-white">
+              <Card className="bg-black border border-gray-700">
                 <CardContent className="p-4">
-                  <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                    <Database className="h-4 w-4 text-blue-600" />
+                  <h3 className="font-medium text-white mb-3 flex items-center gap-2">
+                    <Database className="h-4 w-4 text-blue-400" />
                     Data Source
                   </h3>
                   <div className="grid grid-cols-2 gap-2">
@@ -271,7 +273,7 @@ export function PRBrowsePage() {
                       variant={source === 'stored' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setSource('stored')}
-                      className={`text-xs ${source === 'stored' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                      className={`text-xs ${source === 'stored' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'border-gray-600 text-gray-300 hover:bg-gray-800'}`}
                     >
                       <Database className="h-3 w-3 mr-1" />
                       Stored
@@ -280,13 +282,13 @@ export function PRBrowsePage() {
                       variant={source === 'github' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setSource('github')}
-                      className={`text-xs ${source === 'github' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                      className={`text-xs ${source === 'github' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'border-gray-600 text-gray-300 hover:bg-gray-800'}`}
                     >
                       <Github className="h-3 w-3 mr-1" />
                       GitHub
                     </Button>
                   </div>
-                  <div className="mt-3 text-xs text-gray-600 space-y-1 bg-gray-50 p-2 rounded">
+                  <div className="mt-3 text-xs text-gray-300 space-y-1 bg-gray-800 p-2 rounded">
                     <div className="font-medium">Stored: {prs?.length || 0}</div>
                     <div className="font-medium">GitHub: {filteredGithubPRs.length}</div>
                   </div>
@@ -295,7 +297,7 @@ export function PRBrowsePage() {
 
               {/* Repository Selection */}
               {source === 'github' && (
-                <Card className="border border-gray-200 bg-white">
+                <Card className="bg-black border border-gray-700">
                   <CardContent className="p-4">
                     <RepoSelector
                       onRepoSelect={handleRepoSelect}
@@ -309,10 +311,10 @@ export function PRBrowsePage() {
               )}
 
               {/* Filters */}
-              <Card className="border border-gray-200 bg-white">
+              <Card className="bg-black border border-gray-700">
                 <CardContent className="p-4">
-                  <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                  <h3 className="font-medium text-white mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-green-400 rounded-full"></span>
                     Filters
                   </h3>
                   <div className="grid grid-cols-3 gap-1">
@@ -322,7 +324,7 @@ export function PRBrowsePage() {
                         variant={prFilter === filter ? 'default' : 'outline'}
                         size="sm"
                         onClick={() => setPrFilter(filter)}
-                        className={`text-xs ${prFilter === filter ? 'bg-green-600 hover:bg-green-700 text-white' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                        className={`text-xs ${prFilter === filter ? 'bg-green-600 hover:bg-green-700 text-white' : 'border-gray-600 text-gray-300 hover:bg-gray-800'}`}
                       >
                         {filter.charAt(0).toUpperCase() + filter.slice(1)}
                       </Button>
@@ -333,10 +335,10 @@ export function PRBrowsePage() {
 
               {/* Actions */}
               {source === 'github' && (
-                <Card className="border border-gray-200 bg-white">
+                <Card className="bg-black border border-gray-700">
                   <CardContent className="p-4">
-                    <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                      <Brain className="h-4 w-4 text-purple-600" />
+                    <h3 className="font-medium text-white mb-3 flex items-center gap-2">
+                      <Brain className="h-4 w-4 text-purple-400" />
                       Actions
                     </h3>
                     <div className="space-y-2">
@@ -353,7 +355,7 @@ export function PRBrowsePage() {
                         variant="outline"
                         onClick={() => setSelectedPRs(new Set())}
                         disabled={selectedPRs.size === 0}
-                        className="w-full border-gray-300 text-gray-700 hover:bg-gray-50 disabled:text-gray-400"
+                        className="w-full border-gray-600 text-gray-300 hover:bg-gray-800 disabled:text-gray-500"
                         size="sm"
                       >
                         Clear Selection
@@ -376,7 +378,7 @@ export function PRBrowsePage() {
                   placeholder="Search pull requests by title, author, or repository..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-white text-gray-900 placeholder-gray-500 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full pl-10 pr-4 py-3 bg-gray-900 text-white placeholder-gray-400 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
             </div>
@@ -385,20 +387,20 @@ export function PRBrowsePage() {
             {isFetchingPRs && source === 'github' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[...Array(6)].map((_, i) => (
-                  <div key={i} className="p-6 animate-pulse bg-white rounded-lg border">
-                    <div className="h-4 w-3/4 bg-gray-200 rounded mb-3" />
-                    <div className="h-3 w-1/2 bg-gray-200 rounded mb-2" />
-                    <div className="h-3 w-1/4 bg-gray-200 rounded" />
+                  <div key={i} className="p-6 animate-pulse bg-gray-900 rounded-lg border border-gray-700">
+                    <div className="h-4 w-3/4 bg-gray-700 rounded mb-3" />
+                    <div className="h-3 w-1/2 bg-gray-700 rounded mb-2" />
+                    <div className="h-3 w-1/4 bg-gray-700 rounded" />
                   </div>
                 ))}
               </div>
             ) : searchFilteredPRs.length === 0 ? (
               <div className="text-center py-12">
                 <GitPullRequest className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-                <h3 className="text-xl font-medium text-gray-900 mb-2">
+                <h3 className="text-xl font-medium text-white mb-2">
                   {searchTerm ? 'No matching pull requests' : 'No pull requests found'}
                 </h3>
-                <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                <p className="text-gray-400 mb-6 max-w-md mx-auto">
                   {searchTerm 
                     ? 'Try adjusting your search terms or filters'
                     : source === 'github' 
@@ -410,13 +412,13 @@ export function PRBrowsePage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {searchFilteredPRs.map((pr) => (
-                  <Card key={`${pr.repo}-${pr.number}`} className="hover:shadow-lg transition-shadow border border-gray-200 bg-white">
+                  <Card key={`${pr.repo}-${pr.number}`} className="hover:shadow-lg transition-shadow border border-gray-700 bg-black">
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-2">
-                          <GitPullRequest className="h-4 w-4 text-green-600" />
+                          <GitPullRequest className="h-4 w-4 text-green-400" />
                           {pr.aiSuggestions && (
-                            <Badge className="bg-green-100 text-green-800 text-xs border border-green-200">
+                            <Badge className="bg-green-600 text-white text-xs">
                               AI ✓
                             </Badge>
                           )}
@@ -428,25 +430,25 @@ export function PRBrowsePage() {
                               onCheckedChange={() => handleToggleSelect(pr.number)}
                             />
                           )}
-                          <Badge variant="outline" className="text-xs border-gray-300 text-gray-700">#{pr.number}</Badge>
+                          <Badge variant="outline" className="text-xs border-gray-600 text-gray-300">#{pr.number}</Badge>
                         </div>
                       </div>
 
-                      <h3 className="font-semibold text-gray-900 mb-3 line-clamp-2">
+                      <h3 className="font-semibold text-white mb-3 line-clamp-2">
                         {pr.title}
                       </h3>
 
                       <div className="space-y-2 mb-4">
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <div className="flex items-center gap-2 text-sm text-gray-300">
                           <User className="h-3 w-3" />
                           <span>{pr.author}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <div className="flex items-center gap-2 text-sm text-gray-300">
                           <Calendar className="h-3 w-3" />
                           <span>{new Date(pr.createdAt).toLocaleDateString()}</span>
                         </div>
                         <div>
-                          <code className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded border">
+                          <code className="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded border border-gray-600">
                             {pr.repo}
                           </code>
                         </div>
@@ -457,7 +459,7 @@ export function PRBrowsePage() {
                           href={pr.url || `https://github.com/${pr.repo}/pull/${pr.number}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium"
+                          className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1 font-medium"
                         >
                           View <ExternalLink className="h-3 w-3" />
                         </a>
@@ -471,7 +473,7 @@ export function PRBrowsePage() {
                               })}
                               variant="outline"
                               size="sm"
-                              className="text-xs border-gray-300 text-gray-700 hover:bg-gray-50"
+                              className="text-xs border-gray-600 text-gray-300 hover:bg-gray-800"
                             >
                               <Brain className="h-3 w-3 mr-1" />
                               View Analysis
@@ -483,7 +485,7 @@ export function PRBrowsePage() {
                               onClick={() => handleAnalyzePR(pr)}
                               disabled={analyzingPRs.has(pr.number)}
                               size="sm"
-                              className="text-xs bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-400"
+                              className="text-xs bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-600"
                             >
                               {analyzingPRs.has(pr.number) ? (
                                 <>
