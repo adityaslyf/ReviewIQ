@@ -22,46 +22,45 @@ function LandingPage() {
   return (
     <div className="min-h-screen force-light bg-gradient-to-b from-gray-50 to-gray-100">
       {/* Hero */}
-      <section className="relative overflow-hidden bg-gray-50">
-        <div className="absolute inset-0">
-          <div className="pointer-events-none absolute inset-0" style={{ backgroundImage: "radial-gradient(closest-side, rgba(99,102,241,0.08), transparent 60%)", backgroundPosition: "20% -10%", backgroundSize: "80% 80%" }} />
-        </div>
+      <section className="relative overflow-hidden bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Card Container */}
+          <div className="bg-white/80 backdrop-blur rounded-3xl shadow-2xl p-8 md:p-12 border border-white/40">
+            <div className="text-center">
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/70 backdrop-blur border border-gray-200 px-3 py-1 text-xs text-gray-600 mb-4 shadow-sm">
+                <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                AI-powered PR Reviews
+              </div>
+              <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-gray-900">
+                Streamline Your Pull Request Reviews
+                <br className="hidden md:block" />
+                with a Thoughtful AI Reviewer
+              </h1>
+              <p className="mt-4 max-w-2xl mx-auto text-gray-600">
+                ReviewIQ combines context-rich GitHub data, static analysis and Gemini AI to deliver
+                actionable code suggestions, risk flags, and testing guidance—so your team ships faster.
+              </p>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-16">
-          <div className="text-center">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/70 backdrop-blur border border-gray-200 px-3 py-1 text-xs text-gray-600 mb-4 shadow-sm">
-              <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-              AI-powered PR Reviews
-            </div>
-            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-gray-900">
-              Streamline Your Pull Request Reviews
-              <br className="hidden md:block" />
-              with a Thoughtful AI Reviewer
-            </h1>
-            <p className="mt-4 max-w-2xl mx-auto text-gray-600">
-              ReviewIQ combines context-rich GitHub data, static analysis and Gemini AI to deliver
-              actionable code suggestions, risk flags, and testing guidance—so your team ships faster.
-            </p>
-
-            <div className="mt-8 flex items-center justify-center gap-3">
-              <Button onClick={handlePrimaryCta} className="h-11 px-6 bg-blue-600 hover:bg-blue-700">
-                {isAuthenticated ? "Go to Dashboard" : (
-                  <span className="inline-flex items-center gap-2">
-                    <Github className="h-4 w-4" />
-                    Sign in with GitHub
-                  </span>
-                )}
-              </Button>
-              <Link to="/analysis">
-                <Button variant="outline" className="h-11 px-6">
-                  View Analysis
+              <div className="mt-8 flex items-center justify-center gap-3">
+                <Button onClick={handlePrimaryCta} className="h-11 px-6 bg-blue-600 hover:bg-blue-700">
+                  {isAuthenticated ? "Go to Dashboard" : (
+                    <span className="inline-flex items-center gap-2">
+                      <Github className="h-4 w-4" />
+                      Sign in with GitHub
+                    </span>
+                  )}
                 </Button>
-              </Link>
+                <Link to="/analysis">
+                  <Button variant="outline" className="h-11 px-6">
+                    View Analysis
+                  </Button>
+                </Link>
+              </div>
             </div>
-          </div>
 
-          {/* Hero preview (browser mock with image placeholder) */}
-          <BrowserPreview />
+            {/* Hero preview (browser mock with image placeholder) */}
+            <BrowserPreview />
+          </div>
         </div>
       </section>
 
