@@ -64,10 +64,10 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* Feature strip - glassy */}
-      <section className="pt-6 bg-gray-50">
+      {/* Feature strip - card style */}
+      <section className="py-8 bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="rounded-2xl glass shadow-xl">
+          <div className="bg-white/80 backdrop-blur rounded-3xl shadow-2xl p-8 border border-white/40">
             <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-200">
               <FeatureItem
                 icon={<Workflow className="h-5 w-5 text-blue-600" />}
@@ -89,13 +89,15 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* Secondary section - glassy stats */}
-      <section className="py-14 bg-gray-50">
+      {/* Secondary section - card style stats */}
+      <section className="py-8 bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <StatCard label="Avg. Review Time" value="-42%" hint="with AI suggestions" icon={<Clock3 className="h-4 w-4 text-blue-600" />} />
-            <StatCard label="Bugs Caught Early" value="+31%" hint="via static checks" icon={<ShieldCheck className="h-4 w-4 text-emerald-600" />} />
-            <StatCard label="Merge Confidence" value="↑" hint="clear final verdicts" icon={<BarChart3 className="h-4 w-4 text-purple-600" />} />
+          <div className="bg-white/80 backdrop-blur rounded-3xl shadow-2xl p-8 border border-white/40">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <StatCard label="Avg. Review Time" value="-42%" hint="with AI suggestions" icon={<Clock3 className="h-4 w-4 text-blue-600" />} />
+              <StatCard label="Bugs Caught Early" value="+31%" hint="via static checks" icon={<ShieldCheck className="h-4 w-4 text-emerald-600" />} />
+              <StatCard label="Merge Confidence" value="↑" hint="clear final verdicts" icon={<BarChart3 className="h-4 w-4 text-purple-600" />} />
+            </div>
           </div>
         </div>
       </section>
