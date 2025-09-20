@@ -2,7 +2,7 @@ import React from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Badge } from './ui/badge';
-import { Card } from './ui/card';
+import { toast } from 'sonner';
 import { 
   AlertTriangle, 
   CheckCircle, 
@@ -122,9 +122,10 @@ const getSeverityConfig = (severity: string) => {
 };
 
 // Copy to clipboard function
-const copyToClipboard = async (text: string) => {
+const copyToClipboard = async (text: string, type: string = 'Code') => {
   try {
     await navigator.clipboard.writeText(text);
+    toast.success(`${type} copied to clipboard!`);
   } catch {
     // Fallback for older browsers
     const textArea = document.createElement('textarea');
@@ -133,6 +134,7 @@ const copyToClipboard = async (text: string) => {
     textArea.select();
     document.execCommand('copy');
     document.body.removeChild(textArea);
+    toast.success(`${type} copied to clipboard!`);
   }
 };
 
@@ -146,30 +148,34 @@ export const CodeSuggestionCard: React.FC<CodeSuggestionCardProps> = ({
   const syntaxTheme = theme === 'dark' ? vscDarkPlus : vs;
 
   return (
-    <Card className={`overflow-hidden border ${severityConfig.borderColor} ${severityConfig.bgColor}`}>
+    <div className={`overflow-hidden border-3 border-gray-600 bg-white mb-6`}>
       {/* Header */}
-      <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+      <div className="bg-gray-100 px-6 py-4 border-b-3 border-gray-600">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <div className={`${severityConfig.color}`}>
               {severityConfig.icon}
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant={severityConfig.variant} className="text-xs font-medium">
+            <div className="flex items-center gap-3">
+              <Badge className={`${severityConfig.bgColor.replace('bg-', 'bg-')} ${severityConfig.color} px-3 py-1 text-xs font-bold border-2 border-gray-800`}>
                 {suggestion.severity}
               </Badge>
-              <Badge variant="outline" className="text-xs">
+              <Badge className="bg-black text-white px-3 py-1 text-xs font-bold border-2 border-gray-800">
                 {suggestion.category}
               </Badge>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <FileText className="h-4 w-4" />
-            <span className="font-mono">{suggestion.file}</span>
+          <div className="flex items-center gap-3 text-sm text-black font-bold">
+            <FileText className="h-5 w-5" />
+            <code className="font-mono bg-gray-200 px-2 py-1 border-2 border-gray-600 text-black font-bold">
+              {suggestion.file}
+            </code>
             {suggestion.line && (
               <>
-                <MapPin className="h-4 w-4" />
-                <span>Line {suggestion.line}</span>
+                <MapPin className="h-5 w-5" />
+                <span className="bg-blue-600 text-white px-2 py-1 text-xs font-bold border-2 border-gray-800">
+                  Line {suggestion.line}
+                </span>
               </>
             )}
           </div>
@@ -179,14 +185,14 @@ export const CodeSuggestionCard: React.FC<CodeSuggestionCardProps> = ({
       {/* Content */}
       <div className="p-0">
         {/* Description */}
-        <div className="p-4 bg-white">
-          <div className="flex items-start gap-3">
-            <GitCompare className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+        <div className="p-6 bg-white border-b-3 border-gray-600">
+          <div className="flex items-start gap-4">
+            <GitCompare className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
             <div>
-              <h4 className="font-semibold text-gray-900 mb-2">
+              <h4 className="font-bold text-black text-lg mb-3 uppercase">
                 Suggestion #{index + 1}
               </h4>
-              <p className="text-sm text-gray-700 leading-relaxed">
+              <p className="text-sm text-black leading-relaxed font-medium">
                 {suggestion.reason}
               </p>
             </div>
@@ -194,20 +200,21 @@ export const CodeSuggestionCard: React.FC<CodeSuggestionCardProps> = ({
         </div>
 
         {/* Code Comparison */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 border-t border-gray-200">
+        <div className="grid grid-cols-1 lg:grid-cols-2">
           {/* Current Code */}
-          <div className="border-r border-gray-200">
-            <div className="bg-red-50 px-4 py-2 border-b border-red-200 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <XCircle className="h-4 w-4 text-red-600" />
-                <span className="text-sm font-medium text-red-800">Current Code</span>
+          <div className="border-r-3 border-gray-600">
+            <div className="bg-red-100 px-6 py-4 border-b-3 border-gray-600 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <XCircle className="h-5 w-5 text-red-600" />
+                <span className="text-sm font-bold text-black uppercase">Current Code</span>
               </div>
               <button
-                onClick={() => copyToClipboard(suggestion.original)}
-                className="text-red-600 hover:text-red-800 transition-colors"
+                onClick={() => copyToClipboard(suggestion.original, 'Current code')}
+                className="bg-red-600 text-white px-3 py-2 border-2 border-gray-800 hover:bg-red-700 transition-colors font-bold text-xs uppercase flex items-center gap-2"
                 title="Copy current code"
               >
                 <Copy className="h-4 w-4" />
+                Copy
               </button>
             </div>
             <div className="relative">
@@ -232,17 +239,18 @@ export const CodeSuggestionCard: React.FC<CodeSuggestionCardProps> = ({
 
           {/* Suggested Code */}
           <div>
-            <div className="bg-green-50 px-4 py-2 border-b border-green-200 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <span className="text-sm font-medium text-green-800">Suggested Code</span>
+            <div className="bg-green-100 px-6 py-4 border-b-3 border-gray-600 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <span className="text-sm font-bold text-black uppercase">Suggested Code</span>
               </div>
               <button
-                onClick={() => copyToClipboard(suggestion.suggested)}
-                className="text-green-600 hover:text-green-800 transition-colors"
+                onClick={() => copyToClipboard(suggestion.suggested, 'Suggested code')}
+                className="bg-green-600 text-white px-3 py-2 border-2 border-gray-800 hover:bg-green-700 transition-colors font-bold text-xs uppercase flex items-center gap-2"
                 title="Copy suggested code"
               >
                 <Copy className="h-4 w-4" />
+                Copy
               </button>
             </div>
             <div className="relative">
@@ -266,7 +274,7 @@ export const CodeSuggestionCard: React.FC<CodeSuggestionCardProps> = ({
           </div>
         </div>
       </div>
-    </Card>
+    </div>
   );
 };
 
@@ -293,32 +301,32 @@ export const CodeSuggestionsList: React.FC<CodeSuggestionsListProps> = ({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-          <GitCompare className="h-5 w-5 text-blue-500" />
+    <div className="space-y-8">
+      <div className="flex items-center justify-between bg-gray-100 p-6 border-3 border-gray-600">
+        <h3 className="text-xl font-bold text-black flex items-center gap-3 uppercase">
+          <GitCompare className="h-6 w-6 text-blue-600" />
           Code Suggestions ({suggestions.length})
         </h3>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {suggestions.filter(s => s.severity === 'HIGH').length > 0 && (
-            <Badge variant="destructive" className="text-xs">
+            <Badge className="bg-red-600 text-white px-3 py-1 text-xs font-bold border-2 border-gray-800">
               {suggestions.filter(s => s.severity === 'HIGH').length} High Priority
             </Badge>
           )}
           {suggestions.filter(s => s.severity === 'MEDIUM').length > 0 && (
-            <Badge variant="default" className="text-xs">
+            <Badge className="bg-orange-600 text-white px-3 py-1 text-xs font-bold border-2 border-gray-800">
               {suggestions.filter(s => s.severity === 'MEDIUM').length} Medium Priority
             </Badge>
           )}
           {suggestions.filter(s => s.severity === 'LOW').length > 0 && (
-            <Badge variant="secondary" className="text-xs">
+            <Badge className="bg-green-600 text-white px-3 py-1 text-xs font-bold border-2 border-gray-800">
               {suggestions.filter(s => s.severity === 'LOW').length} Low Priority
             </Badge>
           )}
         </div>
       </div>
       
-      <div className="space-y-6">
+      <div className="space-y-8">
         {suggestions.map((suggestion, index) => (
           <CodeSuggestionCard
             key={index}
