@@ -74,7 +74,8 @@ interface AIAnalysisResult {
 
 export class GeminiService {
   private genAI: GoogleGenerativeAI;
-  private model: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  private model: any;
+  private currentDiff?: string; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   constructor(apiKey: string) {
     if (!apiKey) {
@@ -115,7 +116,7 @@ export class GeminiService {
         const response = await result.response;
         const text = response.text();
         
-        return this.parseCodeFocusedResponse(text, changedFiles);
+        return this.parseCodeFocusedResponse(text, changedFiles, diff);
       } else {
         // Single-pass analysis (existing behavior)
         const prompt = this.buildAnalysisPrompt(prTitle, prDescription, diff, changedFiles);
@@ -172,16 +173,20 @@ export class GeminiService {
         overview: `${aiResult.detailedAnalysis?.overview || aiResult.summary} [Static Analysis: ${staticResults.summary.totalIssues} issues found by ${staticResults.summary.toolsRun.join(', ')}]`,
         codeSuggestions: [
           ...(aiResult.detailedAnalysis?.codeSuggestions || []),
-          ...this.convertStaticIssuesToSuggestions(staticResults.issues)
+          ...this.convertStaticIssuesToSuggestions(staticResults.issues, fileContents)
         ],
         securityConcerns: [
           ...(aiResult.detailedAnalysis?.securityConcerns || []),
           ...staticResults.issues
             .filter(issue => issue.category === 'security')
             .map(issue => `${issue.file}:${issue.line} - ${issue.message} (${issue.rule})`)
-        ]
-      },
-      staticAnalysisResults: staticResults
+        ],
+        performanceImpact: staticResults.issues.filter(issue => issue.category === 'performance').length > 0 
+          ? `Performance concerns detected: ${staticResults.issues.filter(issue => issue.category === 'performance').length} issues found`
+          : 'No performance issues detected',
+        testingRecommendations: aiResult.detailedAnalysis?.testingRecommendations || [],
+        architecturalNotes: aiResult.detailedAnalysis?.architecturalNotes || []
+      }
     };
   }
 
@@ -248,20 +253,359 @@ Respond with ONLY valid JSON:
 }`;
   }
 
-  private convertStaticIssuesToSuggestions(issues: any[]): any[] {
+  private convertStaticIssuesToSuggestions(issues: any[], fileContents?: Array<{ filename: string; content: string }>): any[] {
     return issues
       .filter(issue => issue.severity === 'error' || issue.severity === 'warning')
       .slice(0, 5) // Limit to top 5 static issues
       .map(issue => ({
         file: issue.file,
         line: issue.line,
-        original: `// ${issue.rule} violation detected`,
-        suggested: `// Fix: ${issue.message}`,
+        original: this.extractActualCodeFromFile(issue, fileContents, 'original'),
+        suggested: this.extractActualCodeFromFile(issue, fileContents, 'suggested'),
         reason: `Static analysis (${issue.tool}) found: ${issue.message}. Rule: ${issue.rule}`,
         severity: issue.severity === 'error' ? 'HIGH' : 'MEDIUM',
         category: issue.category === 'security' ? 'Security' : 
                  issue.category === 'performance' ? 'Performance' : 'Logic'
       }));
+  }
+
+  private generateOriginalCodeFromIssue(issue: any): string {
+    // Generate actual code examples based on common ESLint rules
+    switch (issue.rule) {
+      case 'no-unused-vars':
+        return `const unusedVariable = 'value';\n// Variable is declared but never used`;
+      case 'no-console':
+        return `console.log('Debug message');`;
+      case 'eqeqeq':
+        return `if (value == null) {\n  // Using loose equality\n}`;
+      case 'no-var':
+        return `var oldStyleVariable = 'value';`;
+      case 'prefer-const':
+        return `let variable = 'value';\n// Variable is never reassigned`;
+      case 'no-undef':
+        return `undefinedVariable = 'value';\n// Variable is not defined`;
+      case 'semi':
+        return `const statement = 'missing semicolon'`;
+      case 'quotes':
+        return `const message = "inconsistent quotes";`;
+      case 'indent':
+        return `function example() {\nreturn 'incorrect indentation';\n}`;
+      default:
+        return `// Code with ${issue.rule} violation\n// Line ${issue.line}: ${issue.message}`;
+    }
+  }
+
+  private generateSuggestedCodeFromIssue(issue: any): string {
+    // Generate fixed code examples based on common ESLint rules
+    switch (issue.rule) {
+      case 'no-unused-vars':
+        return `// Remove unused variable or use it:\nconst usedVariable = 'value';\nconsole.log(usedVariable);`;
+      case 'no-console':
+        return `// Use proper logging or remove:\n// console.log('Debug message');`;
+      case 'eqeqeq':
+        return `if (value === null) {\n  // Using strict equality\n}`;
+      case 'no-var':
+        return `const modernVariable = 'value';`;
+      case 'prefer-const':
+        return `const variable = 'value';\n// Use const for variables that are never reassigned`;
+      case 'no-undef':
+        return `const definedVariable = 'value';\n// Declare variable before use`;
+      case 'semi':
+        return `const statement = 'with semicolon';`;
+      case 'quotes':
+        return `const message = 'consistent quotes';`;
+      case 'indent':
+        return `function example() {\n  return 'correct indentation';\n}`;
+      default:
+        return `// Fixed code addressing ${issue.rule}\n// Resolved: ${issue.message}`;
+    }
+  }
+
+  private extractOriginalCodeFromSuggestion(item: any, diff?: string): string {
+    // Extract original code from AI suggestion, fallback to diff extraction
+    if (item.originalCode) return item.originalCode;
+    if (item.codeExample && item.codeExample.before) return item.codeExample.before;
+    
+    // Try to extract from diff if available
+    if (diff && item.file && item.line) {
+      const actualCode = this.extractCodeFromDiff(diff, item.file, item.line, 'original');
+      if (actualCode) return actualCode;
+    }
+    
+    // Generate example based on suggestion content
+    return this.generateCodeExampleFromText(item.suggestion, 'original');
+  }
+
+  private extractSuggestedCodeFromSuggestion(item: any, diff?: string): string {
+    // Extract suggested code from AI suggestion
+    if (item.suggestedCode) return item.suggestedCode;
+    if (item.codeExample && item.codeExample.after) return item.codeExample.after;
+    if (item.suggestion && item.suggestion.includes('```')) {
+      // Extract code blocks from suggestion text
+      const codeMatch = item.suggestion.match(/```[\w]*\n([\s\S]*?)\n```/);
+      if (codeMatch) return codeMatch[1];
+    }
+    
+    // Try to extract and fix from diff if available
+    if (diff && item.file && item.line) {
+      const originalCode = this.extractCodeFromDiff(diff, item.file, item.line, 'original');
+      if (originalCode) {
+        // Apply intelligent fixes based on the suggestion content
+        return this.applyIntelligentFix(originalCode, item.suggestion);
+      }
+    }
+    
+    return this.generateCodeExampleFromText(item.suggestion, 'suggested');
+  }
+
+  private extractOriginalCodeFromIssue(item: any): string {
+    if (item.originalCode) return item.originalCode;
+    if (item.codeExample && item.codeExample.before) return item.codeExample.before;
+    
+    return this.generateCodeExampleFromText(item.issue, 'original');
+  }
+
+  private extractSuggestedCodeFromIssue(item: any): string {
+    if (item.suggestedCode) return item.suggestedCode;
+    if (item.codeExample && item.codeExample.after) return item.codeExample.after;
+    if (item.fix && item.fix.includes('```')) {
+      const codeMatch = item.fix.match(/```[\w]*\n([\s\S]*?)\n```/);
+      if (codeMatch) return codeMatch[1];
+    }
+    
+    return this.generateCodeExampleFromText(item.issue, 'suggested');
+  }
+
+  private extractOriginalCodeFromBestPractice(item: any): string {
+    if (item.originalCode) return item.originalCode;
+    if (item.codeExample && item.codeExample.before) return item.codeExample.before;
+    
+    return this.generateCodeExampleFromText(item.suggestion, 'original');
+  }
+
+  private extractSuggestedCodeFromBestPractice(item: any): string {
+    if (item.suggestedCode) return item.suggestedCode;
+    if (item.codeExample && item.codeExample.after) return item.codeExample.after;
+    if (item.suggestion && item.suggestion.includes('```')) {
+      const codeMatch = item.suggestion.match(/```[\w]*\n([\s\S]*?)\n```/);
+      if (codeMatch) return codeMatch[1];
+    }
+    
+    return this.generateCodeExampleFromText(item.suggestion, 'suggested');
+  }
+
+  private extractActualCodeFromFile(issue: any, fileContents?: Array<{ filename: string; content: string }>, type: 'original' | 'suggested' = 'original'): string {
+    if (!fileContents) {
+      return this.generateCodeExampleFromText(issue.message || issue.rule || '', type);
+    }
+
+    // Find the file content
+    const fileContent = fileContents.find(f => f.filename === issue.file);
+    if (!fileContent) {
+      return this.generateCodeExampleFromText(issue.message || issue.rule || '', type);
+    }
+
+    const lines = fileContent.content.split('\n');
+    const lineNumber = issue.line || 1;
+    
+    // Extract context around the problematic line (3 lines before and after)
+    const startLine = Math.max(0, lineNumber - 4);
+    const endLine = Math.min(lines.length, lineNumber + 3);
+    const contextLines = lines.slice(startLine, endLine);
+    
+    if (type === 'original') {
+      // Return the actual problematic code with context
+      return contextLines.join('\n').trim() || this.generateCodeExampleFromText(issue.message || issue.rule || '', type);
+    } else {
+      // Generate fixed version based on the rule
+      return this.generateFixedCodeFromRule(issue, contextLines.join('\n').trim());
+    }
+  }
+
+  private generateFixedCodeFromRule(issue: any, originalCode: string): string {
+    if (!originalCode) {
+      return this.generateCodeExampleFromText(issue.message || issue.rule || '', 'suggested');
+    }
+
+    // Apply specific fixes based on ESLint rules
+    switch (issue.rule) {
+      case 'no-unused-vars':
+        // Remove or comment out unused variables
+        return originalCode.replace(/const\s+(\w+)\s*=.*?;/g, '// Removed unused variable: $1');
+      
+      case 'no-console':
+        // Comment out console statements
+        return originalCode.replace(/console\.(log|warn|error|info)\(/g, '// console.$1(');
+      
+      case 'eqeqeq':
+        // Replace == with ===
+        return originalCode.replace(/\s==\s/g, ' === ').replace(/\s!=\s/g, ' !== ');
+      
+      case 'no-var':
+        // Replace var with const/let
+        return originalCode.replace(/var\s+/g, 'const ');
+      
+      case 'prefer-const':
+        // Replace let with const for variables that aren't reassigned
+        return originalCode.replace(/let\s+/g, 'const ');
+      
+      case 'semi':
+        // Add missing semicolons
+        return originalCode.replace(/([^;])\n/g, '$1;\n');
+      
+      case 'quotes':
+        // Standardize quotes to single quotes
+        return originalCode.replace(/"/g, "'");
+      
+      case 'indent':
+        // Fix indentation (simple 2-space indentation)
+        return originalCode.split('\n').map(line => {
+          const trimmed = line.trim();
+          if (!trimmed) return '';
+          // Simple indentation logic
+          const depth = (line.match(/^\s*/)?.[0].length || 0);
+          const normalizedDepth = Math.floor(depth / 2) * 2;
+          return ' '.repeat(normalizedDepth) + trimmed;
+        }).join('\n');
+      
+      default:
+        // For unknown rules, add a comment with the fix suggestion
+        return `${originalCode}\n// TODO: ${issue.message}`;
+    }
+  }
+
+  private extractCodeFromDiff(diff: string, filename: string, lineNumber: number, type: 'original' | 'suggested'): string | null {
+    const diffLines = diff.split('\n');
+    let currentFile = '';
+    let currentLineNumber = 0;
+    let inFileContent = false;
+    
+    for (let i = 0; i < diffLines.length; i++) {
+      const line = diffLines[i];
+      
+      if (line.startsWith('diff --git')) {
+        const match = line.match(/diff --git a\/(.+) b\/(.+)/);
+        currentFile = match ? match[2] : '';
+        inFileContent = false;
+        currentLineNumber = 0;
+      } else if (line.startsWith('@@') && currentFile === filename) {
+        // Parse line numbers from hunk header
+        const hunkMatch = line.match(/@@ -(\d+),?\d* \+(\d+),?\d* @@/);
+        if (hunkMatch) {
+          currentLineNumber = parseInt(hunkMatch[1]);
+          inFileContent = true;
+        }
+      } else if (inFileContent && currentFile === filename) {
+        if (line.startsWith(' ')) {
+          // Context line
+          currentLineNumber++;
+          if (currentLineNumber === lineNumber) {
+            // Extract context around this line
+            return this.extractContextAroundLine(diffLines, i, 3);
+          }
+        } else if (line.startsWith('-')) {
+          // Deleted line (original)
+          if (type === 'original' && currentLineNumber === lineNumber) {
+            return this.extractContextAroundLine(diffLines, i, 3);
+          }
+          currentLineNumber++;
+        } else if (line.startsWith('+')) {
+          // Added line (suggested)
+          if (type === 'suggested' && currentLineNumber === lineNumber) {
+            return this.extractContextAroundLine(diffLines, i, 3);
+          }
+          // Don't increment line number for added lines in original context
+        }
+      }
+    }
+    
+    return null;
+  }
+
+  private extractContextAroundLine(diffLines: string[], centerIndex: number, contextSize: number): string {
+    const start = Math.max(0, centerIndex - contextSize);
+    const end = Math.min(diffLines.length, centerIndex + contextSize + 1);
+    
+    return diffLines.slice(start, end)
+      .map(line => {
+        // Remove diff prefixes for cleaner code display
+        if (line.startsWith('+ ')) return line.substring(2);
+        if (line.startsWith('- ')) return line.substring(2);
+        if (line.startsWith('  ')) return line.substring(2);
+        return line;
+      })
+      .filter(line => !line.startsWith('@@') && !line.startsWith('diff --git'))
+      .join('\n')
+      .trim();
+  }
+
+  private applyIntelligentFix(originalCode: string, suggestion: string): string {
+    const lowerSuggestion = suggestion.toLowerCase();
+    
+    // Apply fixes based on suggestion content
+    if (lowerSuggestion.includes('async') || lowerSuggestion.includes('await')) {
+      return originalCode.replace(/function\s+(\w+)/g, 'async function $1')
+                        .replace(/return\s+fetch\(/g, 'return await fetch(');
+    }
+    
+    if (lowerSuggestion.includes('const') && lowerSuggestion.includes('let')) {
+      return originalCode.replace(/let\s+/g, 'const ');
+    }
+    
+    if (lowerSuggestion.includes('===') || lowerSuggestion.includes('strict equality')) {
+      return originalCode.replace(/\s==\s/g, ' === ').replace(/\s!=\s/g, ' !== ');
+    }
+    
+    if (lowerSuggestion.includes('semicolon')) {
+      return originalCode.replace(/([^;])\n/g, '$1;\n');
+    }
+    
+    if (lowerSuggestion.includes('error handling') || lowerSuggestion.includes('try-catch')) {
+      return `try {\n${originalCode}\n} catch (error) {\n  console.error('Error:', error);\n  throw error;\n}`;
+    }
+    
+    // If suggestion contains code blocks, extract and use them
+    const codeMatch = suggestion.match(/```[\w]*\n([\s\S]*?)\n```/);
+    if (codeMatch) {
+      return codeMatch[1];
+    }
+    
+    // Default: add suggestion as comment
+    return `${originalCode}\n// Suggested improvement: ${suggestion.slice(0, 100)}...`;
+  }
+
+  private generateCodeExampleFromText(text: string, type: 'original' | 'suggested'): string {
+    // Generate realistic code examples based on text content
+    const lowerText = text.toLowerCase();
+    
+    if (lowerText.includes('function') || lowerText.includes('method')) {
+      return type === 'original' 
+        ? `function example() {\n  // Original implementation\n  return 'old way';\n}`
+        : `function example() {\n  // Improved implementation\n  return 'better way';\n}`;
+    }
+    
+    if (lowerText.includes('variable') || lowerText.includes('const') || lowerText.includes('let')) {
+      return type === 'original'
+        ? `let variable = 'original value';`
+        : `const variable = 'improved value';`;
+    }
+    
+    if (lowerText.includes('import') || lowerText.includes('export')) {
+      return type === 'original'
+        ? `import { oldMethod } from './old-module';`
+        : `import { newMethod } from './improved-module';`;
+    }
+    
+    if (lowerText.includes('async') || lowerText.includes('promise')) {
+      return type === 'original'
+        ? `function getData() {\n  return fetch('/api/data');\n}`
+        : `async function getData() {\n  return await fetch('/api/data');\n}`;
+    }
+    
+    // Default fallback
+    return type === 'original'
+      ? `// Original code implementation\n// ${text.slice(0, 50)}...`
+      : `// Improved code implementation\n// ${text.slice(0, 50)}...`;
   }
 
   private buildFocusedCodePrompt(
@@ -481,8 +825,11 @@ ${ci.checkRuns.length > 0 ? `**Recent Checks:** ${ci.checkRuns.slice(0, 3).map((
 
   private parseCodeFocusedResponse(
     text: string, 
-    changedFiles: Array<{ filename: string; additions: number; deletions: number; changes: number }>
+    changedFiles: Array<{ filename: string; additions: number; deletions: number; changes: number }>,
+    diff?: string
   ): AIAnalysisResult {
+    // Store diff for use in extraction methods
+    this.currentDiff = diff;
     try {
       // Clean and parse the response
       const cleanedResponse = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -494,8 +841,8 @@ ${ci.checkRuns.length > 0 ? `**Recent Checks:** ${ci.checkRuns.slice(0, 3).map((
         ...(parsed.refactorSuggestions || []).map((item: any) => ({
           file: item.file,
           line: item.line || 1,
-          original: "// Refactoring opportunity",
-          suggested: item.suggestion,
+          original: this.extractOriginalCodeFromSuggestion(item, this.currentDiff),
+          suggested: this.extractSuggestedCodeFromSuggestion(item, this.currentDiff),
           reason: item.rationale || item.suggestion,
           severity: "MEDIUM" as const,
           category: "Refactoring" as const
@@ -504,8 +851,8 @@ ${ci.checkRuns.length > 0 ? `**Recent Checks:** ${ci.checkRuns.slice(0, 3).map((
         ...(parsed.potentialIssues || []).map((item: any) => ({
           file: item.file,
           line: item.line || 1,
-          original: "// Issue detected",
-          suggested: "// Fix required",
+          original: this.extractOriginalCodeFromIssue(item),
+          suggested: this.extractSuggestedCodeFromIssue(item),
           reason: item.issue,
           severity: item.severity?.toUpperCase() || "MEDIUM" as const,
           category: "Logic" as const
@@ -514,8 +861,8 @@ ${ci.checkRuns.length > 0 ? `**Recent Checks:** ${ci.checkRuns.slice(0, 3).map((
         ...(parsed.bestPractices || []).map((item: any) => ({
           file: item.file,
           line: 1,
-          original: "// Best practice opportunity",
-          suggested: item.suggestion,
+          original: this.extractOriginalCodeFromBestPractice(item),
+          suggested: this.extractSuggestedCodeFromBestPractice(item),
           reason: item.suggestion,
           severity: "LOW" as const,
           category: "Style" as const
@@ -755,6 +1102,9 @@ Be thorough but practical. Provide specific code examples and actionable insight
         potentialIssues: fallbackResult.potentialIssues,
         detailedAnalysis: detailedAnalysis,
         multiPassAnalysis: {
+          summary: fallbackResult.summary,
+          refactorSuggestions: fallbackResult.refactorSuggestions,
+          potentialIssues: fallbackResult.potentialIssues,
           overallSummary: fallbackResult.summary,
           impactAssessment: `Comprehensive analysis of ${fileCount} files with ${totalChanges} changes. This represents a significant update with potential impacts on architecture, security, and performance.`,
           changeComplexity: totalChanges > 500 ? 'HIGH' as const : totalChanges > 100 ? 'MEDIUM' as const : 'LOW' as const,
@@ -890,8 +1240,8 @@ Your response must be a valid JSON object with the following structure:
       {
         "file": "filename",
         "line": 42,
-        "original": "actual code snippet from the diff",
-        "suggested": "improved code with explanation",
+        "original": "// MUST be actual code, not plain text comments\nconst originalCode = 'example';",
+        "suggested": "// MUST be actual code, not plain text comments\nconst improvedCode = 'better example';",
         "reason": "detailed explanation of why this improvement is needed",
         "severity": "HIGH",
         "category": "Performance"
@@ -912,6 +1262,15 @@ ANALYSIS REQUIREMENTS:
 5. **Actionable Feedback**: Each suggestion should be implementable
 6. **Severity Assessment**: Properly categorize issues by importance
 7. **Best Practices**: Reference industry standards and patterns
+
+CRITICAL CODE REQUIREMENTS:
+- The "original" field MUST contain actual code from the diff/PR, never generic examples
+- The "suggested" field MUST contain actual fixed/improved code that can be copy-pasted
+- Extract real code snippets from the provided diff whenever possible
+- Show actual before/after code transformations from the user's codebase
+- Include sufficient context (3-5 lines) around the problematic code
+- Avoid generic comments like "// Issue detected" or "// Fix required"
+- Focus on actionable, copy-pasteable code improvements
 
 PR CONTEXT:
 Title: ${prTitle}
