@@ -140,6 +140,7 @@ app.post("/api/reanalyze-pr/:prId", async (req, res) => {
     const { 
       enableStaticAnalysis = true, // Default to true for enhanced analysis
       enableCodeGraph = false,
+      enableSandboxValidation = false, // New: Enable sandbox validation
       forceDeepAnalysis = false 
     } = req.body;
     
@@ -425,6 +426,7 @@ app.post("/api/analyze-pr", async (req, res) => {
       enableMultiPass = false,
       enableStaticAnalysis = true, // Default to true for enhanced analysis
       enableCodeGraph = false,
+      enableSandboxValidation = false, // New: Enable sandbox validation
       forceDeepAnalysis = false 
     } = req.body;
     
@@ -449,6 +451,8 @@ app.post("/api/analyze-pr", async (req, res) => {
     // Enhanced services (optional)
     let staticAnalysisService = null;
     let codeGraphService = null;
+    let sandboxValidatorService = null;
+    let patchGeneratorService = null;
     
     if (enableStaticAnalysis) {
       try {
@@ -465,6 +469,18 @@ app.post("/api/analyze-pr", async (req, res) => {
         codeGraphService = getCodeGraphService();
       } catch (error) {
         // Code graph service not available, continue without it
+      }
+    }
+    
+    if (enableSandboxValidation) {
+      try {
+        const { getSandboxValidatorService } = await import("./services/sandbox-validator");
+        const { getPatchGeneratorService } = await import("./services/patch-generator");
+        sandboxValidatorService = getSandboxValidatorService();
+        patchGeneratorService = getPatchGeneratorService();
+      } catch (error) {
+        // Sandbox validation not available, continue without it
+        console.warn("Sandbox validation not available:", error);
       }
     }
 
@@ -533,6 +549,37 @@ app.post("/api/analyze-pr", async (req, res) => {
             (prData as any).enhancedContext || null
           );
 
+          // Step 4: Sandbox validation (if enabled and available)
+          let sandboxResults = null;
+          if (enableSandboxValidation && sandboxValidatorService && patchGeneratorService) {
+            try {
+              // Extract AI suggestions from analysis result
+              const aiSuggestions = extractAISuggestions(analysisResult);
+              
+              if (aiSuggestions.length > 0) {
+                // Generate patches from AI suggestions
+                const fileContents = await patchGeneratorService.extractFileContents(prData.diff);
+                
+                const patchResults = await patchGeneratorService.generatePatches(aiSuggestions, fileContents);
+                
+                if (patchResults.patches.length > 0) {
+                  // Validate patches in sandbox
+                  const repoUrl = `https://github.com/${owner}/${repo}.git`;
+                  const branchName = prData.pr.head?.ref || 'main';
+                  
+                  sandboxResults = await sandboxValidatorService.validatePatches(
+                    repoUrl,
+                    branchName,
+                    patchResults.patches
+                  );
+                }
+              }
+            } catch (sandboxError) {
+              console.warn("Sandbox validation failed:", sandboxError);
+              // Continue without sandbox results
+            }
+          }
+
           // Store AI analysis results
           await db.insert(schema.aiSuggestions).values({
             pullRequestId: storedPR.id,
@@ -543,9 +590,11 @@ app.post("/api/analyze-pr", async (req, res) => {
               ...(analysisResult.detailedAnalysis || {}),
               staticAnalysisResults: staticResults,
               codeGraphResults: codeGraphResults,
+              sandboxValidationResults: sandboxResults,
               enhancedFeaturesUsed: {
                 staticAnalysis: !!staticResults,
-                codeGraph: !!codeGraphResults
+                codeGraph: !!codeGraphResults,
+                sandboxValidation: !!sandboxResults
               }
             }),
             staticAnalysisResults: staticResults ? JSON.stringify(staticResults) : null,
@@ -569,8 +618,10 @@ app.post("/api/analyze-pr", async (req, res) => {
             enhancedFeatures: {
               staticAnalysisIssues: staticResults?.summary.totalIssues || 0,
               codeGraphSymbols: codeGraphResults?.summary.totalSymbols || 0,
+              sandboxValidationResults: sandboxResults?.length || 0,
               staticAnalysisEnabled: !!staticResults,
-              codeGraphEnabled: !!codeGraphResults
+              codeGraphEnabled: !!codeGraphResults,
+              sandboxValidationEnabled: !!sandboxResults
             }
           });
       
@@ -693,6 +744,58 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
+// Helper function to extract AI suggestions from analysis result
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractAISuggestions(analysisResult: any): Array<{
+  file: string;
+  line?: number;
+  issue: string;
+  suggestion: string;
+  reasoning: string;
+  severity: 'error' | 'warning' | 'info';
+  category: 'Security' | 'Performance' | 'Maintainability' | 'Style' | 'Bug' | 'Architecture';
+}> {
+  const suggestions: any[] = [];
+  
+  try {
+    // Extract from detailed analysis if available
+    if (analysisResult.detailedAnalysis?.codeSuggestions) {
+      for (const suggestion of analysisResult.detailedAnalysis.codeSuggestions) {
+        suggestions.push({
+          file: suggestion.file || 'unknown',
+          line: suggestion.line || 1,
+          issue: suggestion.reason || 'Issue detected',
+          suggestion: suggestion.suggested || suggestion.reason || 'Fix recommended',
+          reasoning: suggestion.reason || 'Improvement recommended',
+          severity: suggestion.severity === 'error' ? 'error' : suggestion.severity === 'warning' ? 'warning' : 'info',
+          category: suggestion.category || 'Maintainability'
+        });
+      }
+    }
+    
+    // Extract from security concerns
+    if (analysisResult.detailedAnalysis?.securityConcerns) {
+      for (const concern of analysisResult.detailedAnalysis.securityConcerns) {
+        if (typeof concern === 'string') {
+          const parts = concern.split(':');
+          suggestions.push({
+            file: parts[0] || 'unknown',
+            issue: parts[1] || concern,
+            suggestion: `Address security concern: ${parts[1] || concern}`,
+            reasoning: 'Security vulnerability detected',
+            severity: 'error' as const,
+            category: 'Security' as const
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to extract AI suggestions:', error);
+  }
+  
+  return suggestions;
+}
+
 // Helper function to convert enhanced analysis to legacy format
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function convertToLegacyFormat(proAnalysis: any) {
@@ -747,6 +850,53 @@ function convertToLegacyFormat(proAnalysis: any) {
 
 const port = process.env.PORT || 3000;
 
+
+// Test endpoint for sandbox validation
+app.post("/api/test-sandbox", async (req, res) => {
+  try {
+    const { repoUrl, branchName, testPatch } = req.body;
+    
+    if (!repoUrl || !branchName) {
+      return res.status(400).json({ error: "repoUrl and branchName are required" });
+    }
+
+    const { getSandboxValidatorService } = await import("./services/sandbox-validator");
+    const sandboxService = getSandboxValidatorService();
+    
+    // Create a simple test patch
+    const patches = testPatch ? [testPatch] : [{
+      file: "test.js",
+      originalContent: "console.log('hello');",
+      patchedContent: "console.log('hello world');",
+      description: "Update console log message",
+      type: "fix" as const
+    }];
+
+    const results = await sandboxService.validatePatches(repoUrl, branchName, patches);
+    
+    res.json({
+      success: true,
+      message: "Sandbox validation completed",
+      results: results.map(r => ({
+        patchId: r.patchId,
+        success: r.success,
+        recommendation: r.summary.recommendation,
+        reasoning: r.summary.reasoning,
+        testsPassed: r.testResults.passed,
+        testsFailed: r.testResults.failed,
+        buildSuccess: r.buildResults.success,
+        lintIssues: r.lintResults.issues.length
+      }))
+    });
+    
+  } catch (error) {
+    console.error("Sandbox test failed:", error);
+    res.status(500).json({ 
+      error: "Sandbox test failed", 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    });
+  }
+});
 
 app.listen(port, () => {
 	console.log(`Server is running on port ${port}`);

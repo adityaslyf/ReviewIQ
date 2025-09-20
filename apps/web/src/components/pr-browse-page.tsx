@@ -144,7 +144,8 @@ export function PRBrowsePage() {
           repo: repoName,
           prNumber: pr.number,
           userToken: token,
-          enableStaticAnalysis: true
+          enableStaticAnalysis: true,
+          enableSandboxValidation: true  // Enable sandbox validation for tested fixes
         }),
       });
 

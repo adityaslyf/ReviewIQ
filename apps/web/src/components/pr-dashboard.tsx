@@ -212,7 +212,8 @@ export function PRDashboard() {
           repo: repoName,
           prNumber: pr.number,
           userToken: token,
-          enableStaticAnalysis: true  // Enable static analysis for comprehensive review
+          enableStaticAnalysis: true,  // Enable static analysis for comprehensive review
+          enableSandboxValidation: true  // Enable sandbox validation for tested fixes
         }),
       });
 
