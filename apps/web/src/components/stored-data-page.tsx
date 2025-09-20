@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "./ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Database, ArrowLeft, GitPullRequest, Brain, Calendar, User } from "lucide-react";
+import { BrutalistCard } from "./brutalist-card";
+import { Database, GitPullRequest, Brain, Calendar, User, ExternalLink } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useAuth } from "../contexts/auth-context";
 
@@ -65,28 +65,26 @@ export function StoredDataPage() {
       {/* Header */}
       <div className="bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 border-b border-white/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Link to="/dashboard">
-                  <Button variant="ghost" size="sm">
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Dashboard
-                  </Button>
-                </Link>
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                    <Database className="h-8 w-8 text-amber-600" />
-                    Stored Data
-                  </h1>
-                  <p className="mt-1 text-gray-600">
-                    View historical analysis results and webhook data
-                  </p>
-                </div>
+          <div className="py-12">
+            <div className="flex items-center justify-between mb-12">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3 mb-2">
+                  <Database className="h-8 w-8 text-gray-600" />
+                  Stored Data
+                </h1>
+                <p className="text-gray-600">
+                  View historical analysis results and webhook data
+                </p>
               </div>
-              <div className="flex items-center gap-3">
-                <Badge variant="outline">{totalPRs} Total Records</Badge>
-                <Badge variant="outline">{analyzedPRs.length} Analyzed</Badge>
+              <div className="flex items-center gap-12">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-gray-900">{totalPRs}</div>
+                  <div className="text-sm text-gray-500 uppercase">Total Records</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-gray-900">{analyzedPRs.length}</div>
+                  <div className="text-sm text-gray-500 uppercase">Analyzed</div>
+                </div>
               </div>
             </div>
           </div>
@@ -97,46 +95,70 @@ export function StoredDataPage() {
       <section className="relative overflow-hidden bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 py-8 min-h-screen">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardContent className="p-6 text-center">
-              <div className="text-3xl font-bold text-blue-600">{totalPRs}</div>
-              <div className="text-sm text-gray-600">Total PRs</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6 text-center">
-              <div className="text-3xl font-bold text-green-600">{analyzedPRs.length}</div>
-              <div className="text-sm text-gray-600">AI Analyzed</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6 text-center">
-              <div className="text-3xl font-bold text-purple-600">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
+          <BrutalistCard
+            title="Total PRs"
+            content="All stored pull requests"
+            variant="default"
+          >
+            <div className="text-center">
+              <div className="text-4xl font-bold text-gray-900 mb-2">{totalPRs}</div>
+              <div className="text-sm text-gray-600 uppercase font-bold">Pull Requests</div>
+            </div>
+          </BrutalistCard>
+          
+          <BrutalistCard
+            title="AI Analyzed"
+            content="PRs with AI analysis"
+            variant="green"
+          >
+            <div className="text-center">
+              <div className="text-4xl font-bold text-gray-900 mb-2">{analyzedPRs.length}</div>
+              <div className="text-sm text-gray-600 uppercase font-bold">Analyzed</div>
+            </div>
+          </BrutalistCard>
+          
+          <BrutalistCard
+            title="Completed"
+            content="Finished analysis"
+            variant="purple"
+          >
+            <div className="text-center">
+              <div className="text-4xl font-bold text-gray-900 mb-2">
                 {prs?.filter(pr => pr.aiSuggestions?.analysisStatus === 'completed').length || 0}
               </div>
-              <div className="text-sm text-gray-600">Completed Analysis</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6 text-center">
-              <div className="text-3xl font-bold text-amber-600">
+              <div className="text-sm text-gray-600 uppercase font-bold">Complete</div>
+            </div>
+          </BrutalistCard>
+          
+          <BrutalistCard
+            title="Repositories"
+            content="Unique repositories"
+            variant="orange"
+          >
+            <div className="text-center">
+              <div className="text-4xl font-bold text-gray-900 mb-2">
                 {new Set(prs?.map(pr => pr.repo)).size || 0}
               </div>
-              <div className="text-sm text-gray-600">Repositories</div>
-            </CardContent>
-          </Card>
+              <div className="text-sm text-gray-600 uppercase font-bold">Repos</div>
+            </div>
+          </BrutalistCard>
         </div>
 
         {/* Stored PRs Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <GitPullRequest className="h-5 w-5" />
-              Stored Pull Requests
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        <BrutalistCard
+          title="Stored Pull Requests"
+          content="Historical analysis results and webhook data"
+          variant="default"
+          className="w-full max-w-none"
+        >
+          <div className="flex items-center gap-4 mb-6">
+            <GitPullRequest className="h-8 w-8 text-gray-600" />
+            <div className="flex gap-2">
+              <Badge className="bg-black text-white px-2 py-1 text-xs font-bold">DATABASE</Badge>
+              <Badge className="bg-black text-white px-2 py-1 text-xs font-bold">STORED</Badge>
+            </div>
+          </div>
             {totalPRs === 0 ? (
               <div className="text-center py-12">
                 <Database className="mx-auto h-16 w-16 text-gray-400 mb-4" />
@@ -155,63 +177,63 @@ export function StoredDataPage() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">PR</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Repository</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Author</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Created</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Analysis</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">Actions</th>
+                    <tr className="border-b-3 border-gray-600 bg-gray-100">
+                      <th className="text-left py-4 px-6 font-bold text-black uppercase">PR</th>
+                      <th className="text-left py-4 px-6 font-bold text-black uppercase">Repository</th>
+                      <th className="text-left py-4 px-6 font-bold text-black uppercase">Author</th>
+                      <th className="text-left py-4 px-6 font-bold text-black uppercase">Created</th>
+                      <th className="text-left py-4 px-6 font-bold text-black uppercase">Analysis</th>
+                      <th className="text-left py-4 px-6 font-bold text-black uppercase">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {prs?.map((pr) => (
-                      <tr key={pr.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4">
+                      <tr key={pr.id} className="border-b-2 border-gray-300 hover:bg-gray-50">
+                        <td className="py-4 px-6">
                           <div>
-                            <div className="font-medium text-gray-900">#{pr.number}</div>
-                            <div className="text-sm text-gray-600 max-w-xs truncate">
+                            <div className="font-bold text-black">#{pr.number}</div>
+                            <div className="text-sm text-gray-700 max-w-xs truncate font-medium">
                               {pr.title}
                             </div>
                           </div>
                         </td>
-                        <td className="py-3 px-4">
-                          <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                        <td className="py-4 px-6">
+                          <code className="text-xs bg-gray-200 text-black px-2 py-1 font-bold border-2 border-gray-600">
                             {pr.repo}
                           </code>
                         </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <User className="h-3 w-3" />
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-2 text-sm text-black font-medium">
+                            <User className="h-4 w-4" />
                             {pr.author}
                           </div>
                         </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <Calendar className="h-3 w-3" />
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-2 text-sm text-black font-medium">
+                            <Calendar className="h-4 w-4" />
                             {new Date(pr.createdAt).toLocaleDateString()}
                           </div>
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-4 px-6">
                           {pr.aiSuggestions ? (
-                            <Badge variant="default" className="bg-green-500 text-white text-xs">
+                            <Badge className="bg-green-600 text-white px-3 py-1 text-xs font-bold border-2 border-gray-800">
                               <Brain className="h-3 w-3 mr-1" />
                               Analyzed
                             </Badge>
                           ) : (
-                            <Badge variant="outline" className="text-xs">
+                            <Badge className="bg-gray-400 text-white px-3 py-1 text-xs font-bold border-2 border-gray-800">
                               No Analysis
                             </Badge>
                           )}
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-4 px-6">
                           <div className="flex items-center gap-2">
                             {pr.aiSuggestions && (
                               <Link
                                 to="/analysis"
                                 search={{ repo: pr.repo, number: pr.number }}
                               >
-                                <Button variant="outline" size="sm" className="text-xs">
+                                <Button size="sm" className="text-xs bg-blue-600 hover:bg-blue-700 text-white border-2 border-blue-800 font-bold">
                                   View Analysis
                                 </Button>
                               </Link>
@@ -220,10 +242,9 @@ export function StoredDataPage() {
                               href={`https://github.com/${pr.repo}/pull/${pr.number}`}
                               target="_blank"
                               rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-bold"
                             >
-                              <Button variant="ghost" size="sm" className="text-xs">
-                                GitHub
-                              </Button>
+                              GitHub <ExternalLink className="h-3 w-3" />
                             </a>
                           </div>
                         </td>
@@ -233,8 +254,7 @@ export function StoredDataPage() {
                 </table>
               </div>
             )}
-          </CardContent>
-        </Card>
+        </BrutalistCard>
         </div>
       </section>
     </div>
