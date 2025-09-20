@@ -11,13 +11,13 @@ interface BrutalistCardProps {
 }
 
 const variantStyles = {
-  default: 'border-gray-600 shadow-[12px_12px_0_#6b7280] hover:shadow-[17px_17px_0_#6b7280]',
-  green: 'border-green-600 shadow-[12px_12px_0_#059669] hover:shadow-[17px_17px_0_#059669]',
-  purple: 'border-purple-600 shadow-[12px_12px_0_#7c3aed] hover:shadow-[17px_17px_0_#7c3aed]',
-  blue: 'border-blue-600 shadow-[12px_12px_0_#2563eb] hover:shadow-[17px_17px_0_#2563eb]',
-  orange: 'border-orange-600 shadow-[12px_12px_0_#ea580c] hover:shadow-[17px_17px_0_#ea580c]',
-  gray: 'border-gray-600 shadow-[12px_12px_0_#4b5563] hover:shadow-[17px_17px_0_#4b5563]',
-  indigo: 'border-indigo-600 shadow-[12px_12px_0_#4338ca] hover:shadow-[17px_17px_0_#4338ca]',
+  default: 'border-gray-600',
+  green: 'border-green-600',
+  purple: 'border-purple-600',
+  blue: 'border-blue-600',
+  orange: 'border-orange-600',
+  gray: 'border-gray-600',
+  indigo: 'border-indigo-600',
 };
 
 export function BrutalistCard({ 
@@ -34,7 +34,7 @@ export function BrutalistCard({
     <CardComponent
       onClick={onClick}
       className={cn(
-        'brutalist-card w-full max-w-sm p-5 bg-white border-6 transition-all duration-300 ease-out hover:transform hover:-translate-x-1 hover:-translate-y-1',
+        'brutalist-card w-full max-w-sm p-5 bg-white border-6 transition-all duration-300 ease-out',
         variantStyles[variant],
         onClick && 'cursor-pointer focus:outline-none focus:ring-4 focus:ring-gray-600 focus:ring-offset-2',
         className
@@ -88,7 +88,7 @@ export function BrutalistFormCard({
 
   return (
     <div className={cn(
-      'brutalist-card w-full max-w-sm p-5 bg-white border-6 transition-all duration-300 ease-out hover:transform hover:-translate-x-1 hover:-translate-y-1',
+      'brutalist-card w-full max-w-sm p-5 bg-white border-6 transition-all duration-300 ease-out',
       variantStyles[variant],
       className
     )}>

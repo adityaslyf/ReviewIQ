@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Badge } from "./ui/badge";
 import { Checkbox } from "./ui/checkbox";
 import { Button } from "./ui/button";
-import { Card, CardContent } from "./ui/card";
+import { BrutalistCard } from "./brutalist-card";
 import { 
   ExternalLink, 
   GitPullRequest, 
@@ -10,7 +10,6 @@ import {
   Calendar, 
   Zap, 
   Search,
-  ArrowLeft,
   Brain,
   Github,
   Database
@@ -19,7 +18,7 @@ import { useState, useEffect, useRef } from "react";
 import { RepoSelector } from "./repo-selector";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/auth-context";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 
 interface PullRequest {
   id: number;
@@ -314,18 +313,18 @@ export function PRBrowsePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
-        <span className="ml-2 text-gray-300">Loading pull requests...</span>
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="ml-2 text-gray-600">Loading pull requests...</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center">
         <div className="text-center p-8">
-          <p className="text-red-400 mb-4">Error loading pull requests: {error.message}</p>
+          <p className="text-red-600 mb-4">Error loading pull requests: {error.message}</p>
           <Button onClick={() => refetch()}>Retry</Button>
         </div>
       </div>
@@ -333,58 +332,61 @@ export function PRBrowsePage() {
   }
 
   return (
-    <div className="min-h-screen bg-black">
-      {/* Header */}
-      <div className="bg-black border-b border-gray-800">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+      <section className="relative overflow-hidden bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 py-8 min-h-screen">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Link to="/dashboard">
-                  <Button variant="ghost" size="sm" className="text-gray-300 hover:text-white hover:bg-gray-800">
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Dashboard
-                  </Button>
-                </Link>
-                <div>
-                  <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-                    <GitPullRequest className="h-8 w-8 text-green-400" />
-                    Pull Requests
-                  </h1>
-                  <p className="mt-1 text-gray-300">
-                    Browse and analyze pull requests from GitHub repositories
-                  </p>
-                </div>
+          {/* Clean Header Section */}
+          <div className="flex items-center justify-between mb-12">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3 mb-2">
+                <GitPullRequest className="h-8 w-8 text-gray-600" />
+                Pull Requests
+              </h1>
+              <p className="text-gray-600">
+                Browse and analyze pull requests from GitHub repositories
+              </p>
+            </div>
+            <div className="flex items-center gap-12">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-gray-900">{searchFilteredPRs.length}</div>
+                <div className="text-sm text-gray-500 uppercase">PRs</div>
               </div>
-              <div className="flex items-center gap-3">
-                <Badge variant="outline" className="text-gray-300 border-gray-600">{searchFilteredPRs.length} PRs</Badge>
-                {analyzingPRs.size > 0 && (
-                  <Badge className="bg-purple-600 text-white">Analyzing {analyzingPRs.size}</Badge>
-                )}
+              {analyzingPRs.size > 0 && (
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-purple-600">{analyzingPRs.size}</div>
+                  <div className="text-sm text-gray-500 uppercase">Analyzing</div>
+                </div>
+              )}
+              <div className="text-center">
+                <div className="text-3xl font-bold text-gray-900">{prs?.filter(pr => pr.aiSuggestions).length || 0}</div>
+                <div className="text-sm text-gray-500 uppercase">Analyzed</div>
               </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-12 gap-8">
-          {/* Sidebar */}
-          <div className="col-span-3">
-            <div className="space-y-6">
-              {/* Source Selection */}
-              <Card className="bg-black border border-gray-700">
-                <CardContent className="p-4">
-                  <h3 className="font-medium text-white mb-3 flex items-center gap-2">
-                    <Database className="h-4 w-4 text-blue-400" />
-                    Data Source
-                  </h3>
-                  <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-12 gap-8">
+            {/* Sidebar */}
+            <div className="col-span-3">
+              <div className="space-y-6">
+                {/* Source Selection */}
+                <BrutalistCard
+                  title="Data Source"
+                  content="Choose between stored pull requests or fetch live data from GitHub repositories."
+                  variant="blue"
+                  className="w-full max-w-none"
+                >
+                  <div className="flex items-center gap-4 mb-4">
+                    <Database className="h-8 w-8 text-gray-600" />
+                    <div className="flex gap-2">
+                      <Badge className="bg-black text-white px-2 py-1 text-xs font-bold">SOURCE</Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2 mb-4">
                     <Button
                       variant={source === 'stored' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setSource('stored')}
-                      className={`text-xs ${source === 'stored' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'border-gray-600 text-gray-300 hover:bg-gray-800'}`}
+                      className={`text-xs font-bold border-2 ${source === 'stored' ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-800' : 'border-gray-600 text-black hover:bg-gray-600 hover:text-white'}`}
                     >
                       <Database className="h-3 w-3 mr-1" />
                       Stored
@@ -393,103 +395,127 @@ export function PRBrowsePage() {
                       variant={source === 'github' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setSource('github')}
-                      className={`text-xs ${source === 'github' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'border-gray-600 text-gray-300 hover:bg-gray-800'}`}
+                      className={`text-xs font-bold border-2 ${source === 'github' ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-800' : 'border-gray-600 text-black hover:bg-gray-600 hover:text-white'}`}
                     >
                       <Github className="h-3 w-3 mr-1" />
                       GitHub
                     </Button>
                   </div>
-                  <div className="mt-3 text-xs text-gray-300 space-y-1 bg-gray-800 p-2 rounded">
-                    <div className="font-medium">Stored: {prs?.length || 0}</div>
-                    <div className="font-medium">GitHub: {filteredGithubPRs.length}</div>
+                  
+                  <div className="text-xs text-black space-y-1 bg-gray-200 p-3 border-2 border-gray-600 font-bold">
+                    <div>Stored: {prs?.length || 0}</div>
+                    <div>GitHub: {filteredGithubPRs.length}</div>
                   </div>
-                </CardContent>
-              </Card>
+                </BrutalistCard>
 
               {/* Repository Selection */}
               {source === 'github' && (
-                <Card className="bg-black border border-gray-700">
-                  <CardContent className="p-4">
-                    <RepoSelector
-                      onRepoSelect={handleRepoSelect}
-                      selectedRepo={selectedRepo}
-                      onFetchPRs={handleFetchGitHubPRs}
-                      isFetchingPRs={isFetchingPRs}
-                      compact
-                    />
-                  </CardContent>
-                </Card>
+                <BrutalistCard
+                  title="Repository"
+                  content="Select a GitHub repository to fetch and analyze pull requests from your connected account."
+                  variant="green"
+                  className="w-full max-w-none"
+                >
+                  <div className="flex items-center gap-4 mb-4">
+                    <Github className="h-8 w-8 text-gray-600" />
+                    <div className="flex gap-2">
+                      <Badge className="bg-black text-white px-2 py-1 text-xs font-bold">GITHUB</Badge>
+                    </div>
+                  </div>
+                  
+                  <RepoSelector
+                    onRepoSelect={handleRepoSelect}
+                    selectedRepo={selectedRepo}
+                    onFetchPRs={handleFetchGitHubPRs}
+                    isFetchingPRs={isFetchingPRs}
+                    compact
+                  />
+                </BrutalistCard>
               )}
 
               {/* Filters */}
-              <Card className="bg-black border border-gray-700">
-                <CardContent className="p-4">
-                  <h3 className="font-medium text-white mb-3 flex items-center gap-2">
-                    <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-                    Filters
-                  </h3>
-                  <div className="grid grid-cols-3 gap-1">
-                    {(['all', 'open', 'closed'] as const).map((filter) => (
-                      <Button
-                        key={filter}
-                        variant={prFilter === filter ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setPrFilter(filter)}
-                        className={`text-xs ${prFilter === filter ? 'bg-green-600 hover:bg-green-700 text-white' : 'border-gray-600 text-gray-300 hover:bg-gray-800'}`}
-                      >
-                        {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                      </Button>
-                    ))}
+              <BrutalistCard
+                title="Filters"
+                content="Filter pull requests by their current status to focus on specific types of changes."
+                variant="green"
+                className="w-full max-w-none"
+              >
+                <div className="flex items-center gap-4 mb-4">
+                  <span className="w-8 h-8 bg-green-400 rounded-full flex items-center justify-center">
+                    <span className="w-4 h-4 bg-white rounded-full"></span>
+                  </span>
+                  <div className="flex gap-2">
+                    <Badge className="bg-black text-white px-2 py-1 text-xs font-bold">FILTER</Badge>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-1">
+                  {(['all', 'open', 'closed'] as const).map((filter) => (
+                    <Button
+                      key={filter}
+                      variant={prFilter === filter ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setPrFilter(filter)}
+                      className={`text-xs font-bold border-2 ${prFilter === filter ? 'bg-green-600 hover:bg-green-700 text-white border-green-800' : 'border-gray-600 text-black hover:bg-gray-600 hover:text-white'}`}
+                    >
+                      {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                    </Button>
+                  ))}
+                </div>
+              </BrutalistCard>
 
               {/* Actions */}
               {source === 'github' && (
-                <Card className="bg-black border border-gray-700">
-                  <CardContent className="p-4">
-                    <h3 className="font-medium text-white mb-3 flex items-center gap-2">
-                      <Brain className="h-4 w-4 text-purple-400" />
-                      Actions
-                    </h3>
-                    <div className="space-y-2">
-                      <Button
-                        onClick={handleAnalyzeSelected}
-                        disabled={selectedPRs.size === 0 || analyzingPRs.size > 0}
-                        className="w-full bg-purple-600 hover:bg-purple-700 text-white disabled:bg-gray-400"
-                        size="sm"
-                      >
-                        <Brain className="h-3 w-3 mr-2" />
-                        Analyze Selected ({selectedPRs.size})
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => setSelectedPRs(new Set())}
-                        disabled={selectedPRs.size === 0}
-                        className="w-full border-gray-600 text-gray-300 hover:bg-gray-800 disabled:text-gray-500"
-                        size="sm"
-                      >
-                        Clear Selection
-                      </Button>
+                <BrutalistCard
+                  title="Actions"
+                  content="Perform bulk operations on selected pull requests for efficient analysis workflows."
+                  variant="purple"
+                  className="w-full max-w-none"
+                >
+                  <div className="flex items-center gap-4 mb-4">
+                    <Brain className="h-8 w-8 text-gray-600" />
+                    <div className="flex gap-2">
+                      <Badge className="bg-black text-white px-2 py-1 text-xs font-bold">AI</Badge>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <Button
+                      onClick={handleAnalyzeSelected}
+                      disabled={selectedPRs.size === 0 || analyzingPRs.size > 0}
+                      className="w-full bg-purple-600 hover:bg-purple-700 text-white disabled:bg-gray-400 border-2 border-purple-800 font-bold"
+                      size="sm"
+                    >
+                      <Brain className="h-3 w-3 mr-2" />
+                      Analyze Selected ({selectedPRs.size})
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setSelectedPRs(new Set())}
+                      disabled={selectedPRs.size === 0}
+                      className="w-full border-2 border-gray-600 text-black hover:bg-gray-600 hover:text-white disabled:text-gray-500 font-bold"
+                      size="sm"
+                    >
+                      Clear Selection
+                    </Button>
+                  </div>
+                </BrutalistCard>
               )}
+              </div>
             </div>
-          </div>
 
-          {/* Main Content */}
-          <div className="col-span-9">
-            {/* Search Bar */}
-            <div className="mb-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            {/* Main Content */}
+            <div className="col-span-9">
+              {/* Search Bar */}
+              <div className="mb-6">
+                <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-600" />
                 <input
                   type="text"
                   placeholder="Search pull requests by title, author, or repository..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-gray-900 text-white placeholder-gray-400 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full pl-10 pr-4 py-3 bg-white text-black placeholder-gray-600 border-3 border-gray-600 rounded-none focus:outline-none focus:border-blue-600 focus:bg-gray-100 font-medium shadow-[4px_4px_0_#4b5563]"
                 />
               </div>
             </div>
@@ -498,17 +524,17 @@ export function PRBrowsePage() {
             {isFetchingPRs && source === 'github' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[...Array(6)].map((_, i) => (
-                  <div key={i} className="p-6 animate-pulse bg-gray-900 rounded-lg border border-gray-700">
-                    <div className="h-4 w-3/4 bg-gray-700 rounded mb-3" />
-                    <div className="h-3 w-1/2 bg-gray-700 rounded mb-2" />
-                    <div className="h-3 w-1/4 bg-gray-700 rounded" />
+                  <div key={i} className="p-6 animate-pulse bg-gray-100 rounded-lg border border-gray-300">
+                    <div className="h-4 w-3/4 bg-gray-300 rounded mb-3" />
+                    <div className="h-3 w-1/2 bg-gray-300 rounded mb-2" />
+                    <div className="h-3 w-1/4 bg-gray-300 rounded" />
                   </div>
                 ))}
               </div>
             ) : searchFilteredPRs.length === 0 ? (
               <div className="text-center py-12">
                 <GitPullRequest className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-                <h3 className="text-xl font-medium text-white mb-2">
+                <h3 className="text-xl font-medium text-gray-900 mb-2">
                   {searchTerm ? 'No matching pull requests' : 'No pull requests found'}
                 </h3>
                 <p className="text-gray-400 mb-6 max-w-md mx-auto">
@@ -521,106 +547,105 @@ export function PRBrowsePage() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {searchFilteredPRs.map((pr) => (
-                  <Card key={`${pr.repo}-${pr.number}`} className="hover:shadow-lg transition-shadow border border-gray-700 bg-black">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <GitPullRequest className="h-4 w-4 text-green-400" />
-                          {pr.aiSuggestions && (
-                            <Badge className="bg-green-600 text-white text-xs">
-                              AI ✓
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {source === 'github' && (
-                            <Checkbox
-                              checked={selectedPRs.has(pr.number)}
-                              onCheckedChange={() => handleToggleSelect(pr.number)}
-                            />
-                          )}
-                          <Badge variant="outline" className="text-xs border-gray-600 text-gray-300">#{pr.number}</Badge>
-                        </div>
+                  <BrutalistCard
+                    key={`${pr.repo}-${pr.number}`}
+                    title={`PR #${pr.number}`}
+                    content={pr.title}
+                    variant="default"
+                    className="hover:cursor-pointer"
+                  >
+                    <div className="flex items-center gap-4 mb-4">
+                      <GitPullRequest className="h-8 w-8 text-gray-600" />
+                      <div className="flex gap-2">
+                        {pr.aiSuggestions && (
+                          <Badge className="bg-black text-white px-2 py-1 text-xs font-bold">AI ✓</Badge>
+                        )}
+                        <Badge className="bg-black text-white px-2 py-1 text-xs font-bold">GITHUB</Badge>
                       </div>
+                    </div>
 
-                      <h3 className="font-semibold text-white mb-3 line-clamp-2">
-                        {pr.title}
-                      </h3>
-
-                      <div className="space-y-2 mb-4">
-                        <div className="flex items-center gap-2 text-sm text-gray-300">
-                          <User className="h-3 w-3" />
-                          <span>{pr.author}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-300">
-                          <Calendar className="h-3 w-3" />
-                          <span>{new Date(pr.createdAt).toLocaleDateString()}</span>
-                        </div>
-                        <div>
-                          <code className="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded border border-gray-600">
-                            {pr.repo}
-                          </code>
-                        </div>
+                    <div className="space-y-3 mb-4">
+                      <div className="flex items-center gap-2 text-sm text-black">
+                        <User className="h-4 w-4" />
+                        <span className="font-medium">{pr.author}</span>
                       </div>
+                      <div className="flex items-center gap-2 text-sm text-black">
+                        <Calendar className="h-4 w-4" />
+                        <span>{new Date(pr.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      <div>
+                        <code className="text-xs bg-gray-200 text-black px-2 py-1 rounded font-bold border-2 border-gray-600">
+                          {pr.repo}
+                        </code>
+                      </div>
+                    </div>
 
-                      <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center gap-2">
+                        {source === 'github' && (
+                          <Checkbox
+                            checked={selectedPRs.has(pr.number)}
+                            onCheckedChange={() => handleToggleSelect(pr.number)}
+                          />
+                        )}
                         <a
                           href={pr.url || `https://github.com/${pr.repo}/pull/${pr.number}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1 font-medium"
+                          className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 font-bold"
                         >
-                          View <ExternalLink className="h-3 w-3" />
+                          View PR <ExternalLink className="h-3 w-3" />
                         </a>
-                        
-                        <div className="flex items-center gap-2">
-                          {pr.aiSuggestions && (
-                            <Button
-                              onClick={() => navigate({ 
-                                to: "/analysis", 
-                                search: { repo: pr.repo, number: pr.number } 
-                              })}
-                              variant="outline"
-                              size="sm"
-                              className="text-xs border-gray-600 text-gray-300 hover:bg-gray-800"
-                            >
-                              <Brain className="h-3 w-3 mr-1" />
-                              View Analysis
-                            </Button>
-                          )}
-                          
-                          {source === 'github' && (
-                            <Button
-                              onClick={() => handleAnalyzePR(pr)}
-                              disabled={analyzingPRs.has(pr.number)}
-                              size="sm"
-                              className="text-xs bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-600"
-                            >
-                              {analyzingPRs.has(pr.number) ? (
-                                <>
-                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
-                                  Analyzing...
-                                </>
-                              ) : (
-                                <>
-                                  <Zap className="h-3 w-3 mr-1" />
-                                  Analyze
-                                </>
-                              )}
-                            </Button>
-                          )}
-                        </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                      
+                      <div className="flex items-center gap-2">
+                        {pr.aiSuggestions && (
+                          <Button
+                            onClick={() => navigate({ 
+                              to: "/analysis", 
+                              search: { repo: pr.repo, number: pr.number } 
+                            })}
+                            variant="outline"
+                            size="sm"
+                            className="text-xs border-2 border-gray-600 text-black hover:bg-gray-600 hover:text-white font-bold"
+                          >
+                            <Brain className="h-3 w-3 mr-1" />
+                            View Analysis
+                          </Button>
+                        )}
+                        
+                        {source === 'github' && (
+                          <Button
+                            onClick={() => handleAnalyzePR(pr)}
+                            disabled={analyzingPRs.has(pr.number)}
+                            size="sm"
+                            className="text-xs bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-400 border-2 border-blue-800 font-bold"
+                          >
+                            {analyzingPRs.has(pr.number) ? (
+                              <>
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                                Analyzing...
+                              </>
+                            ) : (
+                              <>
+                                <Zap className="h-3 w-3 mr-1" />
+                                Analyze
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </BrutalistCard>
                 ))}
               </div>
             )}
+            </div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

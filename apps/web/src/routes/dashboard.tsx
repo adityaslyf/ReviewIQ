@@ -51,7 +51,7 @@ function DashboardContent() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       {/* Main Content */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 py-8">
+      <section className="relative overflow-hidden bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 py-8 min-h-screen">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Clean Header Section */}
         <div className="flex items-center justify-between mb-12">
@@ -112,7 +112,7 @@ function DashboardContent() {
               <div className="flex items-center gap-4 mb-4">
                 <Brain className="h-8 w-8 text-gray-600" />
                 <div className="flex gap-2">
-                  <Badge className="bg-black text-white px-2 py-1 text-xs font-bold">GEMINI AI</Badge>
+                  <Badge className="bg-black text-white px-2 py-1 text-xs font-bold">AI</Badge>
                   <Badge className="bg-black text-white px-2 py-1 text-xs font-bold">SMART</Badge>
                 </div>
               </div>

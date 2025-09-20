@@ -305,33 +305,33 @@ export function AnalysisPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       {/* Header */}
-      <div className="bg-black border-b border-gray-800">
+      <div className="bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 border-b border-white/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <Link to="/dashboard">
-                  <Button variant="ghost" size="sm" className="text-gray-300 hover:text-white hover:bg-gray-800">
+                  <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-900 hover:bg-gray-100">
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Dashboard
                   </Button>
                 </Link>
                 <div>
-                  <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-                    <Brain className="h-8 w-8 text-purple-400" />
+                  <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+                    <Brain className="h-8 w-8 text-purple-600" />
                     AI Analysis Results
                   </h1>
-                  <p className="mt-1 text-gray-300">
+                  <p className="mt-1 text-gray-600">
                     View detailed AI-powered code review insights
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Badge variant="outline" className="text-gray-300 border-gray-600">{analyzedPRs.length} Analyzed PRs</Badge>
+                <Badge variant="outline" className="text-gray-600 border-gray-300">{analyzedPRs.length} Analyzed PRs</Badge>
                 <Link to="/pull-requests">
-                  <Button variant="outline" size="sm" className="text-gray-300 border-gray-600 hover:bg-gray-800 hover:text-white">
+                  <Button variant="outline" size="sm" className="text-gray-600 border-gray-300 hover:bg-gray-100 hover:text-gray-900">
                     Browse PRs
                   </Button>
                 </Link>
@@ -341,7 +341,8 @@ export function AnalysisPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <section className="relative overflow-hidden bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 py-8 min-h-screen">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {selectedPR ? (
           /* Single PR Analysis View */
           <div className="grid grid-cols-12 gap-8">
@@ -478,7 +479,8 @@ export function AnalysisPage() {
             )}
           </div>
         )}
-      </div>
+        </div>
+      </section>
     </div>
   );
 }
