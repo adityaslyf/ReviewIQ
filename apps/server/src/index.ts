@@ -127,15 +127,21 @@ app.get("/api/pull-requests/:id/ai-suggestions", async (req, res) => {
   }
 });
 
-// Reanalyze an existing PR to get enhanced analysis
+// Enhanced reanalysis endpoint with new capabilities
 app.post("/api/reanalyze-pr/:prId", async (req, res) => {
   try {
     const { db, schema } = await import("./db");
     const { eq } = await import("drizzle-orm");
-    const { GeminiService } = await import("./services/gemini");
+    const { getEnhancedGeminiService } = await import("./services/enhanced-gemini");
+    const { getEnhancedStaticAnalysisService } = await import("./services/enhanced-static-analysis");
+    const { getCodeGraphService } = await import("./services/code-graph");
     
     const prId = parseInt(req.params.prId);
-    const { enableMultiPass = false, enableStaticAnalysis = false } = req.body;
+    const { 
+      enableStaticAnalysis = true, // Default to true for enhanced analysis
+      enableCodeGraph = false,
+      forceDeepAnalysis = false 
+    } = req.body;
     
     if (!process.env.GEMINI_API_KEY) {
       return res.status(500).json({ error: "GEMINI_API_KEY not configured" });
@@ -150,15 +156,15 @@ app.post("/api/reanalyze-pr/:prId", async (req, res) => {
 
     const prData = pr[0];
     
-    // Initialize services
+    // Initialize enhanced services
     const githubService = getGitHubService();
-    const geminiService = new GeminiService(process.env.GEMINI_API_KEY);
+    const enhancedGeminiService = getEnhancedGeminiService(process.env.GEMINI_API_KEY);
+    const staticAnalysisService = getEnhancedStaticAnalysisService();
+    const codeGraphService = getCodeGraphService();
     
-    console.log(`Reanalyzing PR #${prData.number} from ${prData.repo}...`);
     
     try {
       // Fetch fresh PR data from GitHub
-      console.log(`Fetching PR data for ${prData.repo}#${prData.number}...`);
       const [owner, repo] = prData.repo.split('/');
       const installationId = process.env.GITHUB_INSTALLATION_ID;
       
@@ -174,13 +180,27 @@ app.post("/api/reanalyze-pr/:prId", async (req, res) => {
         parseInt(installationId)
       );
       
-      const { pr, diff, files, enhancedContext } = enhancedPRData;
-      // Handle fallback case where enhancedContext might not exist
-      const contextToUse = enhancedContext || null;
-      console.log(`Successfully fetched enhanced PR data: ${diff.length} chars diff, ${files.length} files, enhanced context available`);
+      const { pr, diff, files } = enhancedPRData;
+      // Handle enhanced context if available
+      const contextToUse = (enhancedPRData as any).enhancedContext || null;
       
-      // Run enhanced AI analysis with full context
-      const analysisResult = await geminiService.analyzePullRequest(
+      // Step 1: Enhanced static analysis
+      let staticResults = null;
+      if (enableStaticAnalysis) {
+        const fileContents = staticAnalysisService.extractFileContents(diff);
+        staticResults = await staticAnalysisService.analyzeCodeEnhanced(fileContents, diff);
+      }
+
+      // Step 2: Code graph analysis (optional)
+      let codeGraphResults = null;
+      if (enableCodeGraph) {
+        const fileContents = staticAnalysisService.extractFileContents(diff);
+        const changedFileNames = files.map(f => f.filename);
+        codeGraphResults = await codeGraphService.analyzeCodeGraph(fileContents, diff, changedFileNames);
+      }
+
+      // Step 3: Enhanced AI analysis with multi-model approach
+      const analysisResult = await enhancedGeminiService.analyzeWithMultiModel(
         pr.title,
         pr.body || "",
         diff,
@@ -190,35 +210,57 @@ app.post("/api/reanalyze-pr/:prId", async (req, res) => {
           deletions: file.deletions,
           changes: file.changes
         })),
-        enableMultiPass,
-        enableStaticAnalysis,
-        contextToUse
+        {
+          enableStaticAnalysis,
+          forceDeepAnalysis,
+          includeContext: {
+            ...contextToUse,
+            staticAnalysis: staticResults,
+            codeGraph: codeGraphResults
+          }
+        }
       );
 
-      console.log(`Analysis completed for PR #${prData.number}: ${analysisResult.detailedAnalysis ? 'with detailed analysis' : 'basic analysis only'}`);
 
-      // Update existing AI suggestions
+      // Convert structured result to legacy format for database compatibility
+      const legacyResult = convertToLegacyFormat(analysisResult.proAnalysis);
+
+      // Update existing AI suggestions with enhanced data
       await db.update(schema.aiSuggestions)
         .set({
-          summary: analysisResult.summary,
-          refactorSuggestions: analysisResult.refactorSuggestions,
-          potentialIssues: analysisResult.potentialIssues,
-          detailedAnalysis: analysisResult.detailedAnalysis ? JSON.stringify(analysisResult.detailedAnalysis) : null,
-          staticAnalysisResults: (analysisResult as any).staticAnalysisResults ? JSON.stringify((analysisResult as any).staticAnalysisResults) : null,
-          analysisMode: enableStaticAnalysis ? "static-enhanced" : enableMultiPass ? "multi-pass" : "single-pass",
+          summary: legacyResult.summary,
+          refactorSuggestions: legacyResult.refactorSuggestions,
+          potentialIssues: legacyResult.potentialIssues,
+          detailedAnalysis: JSON.stringify({
+            ...legacyResult.detailedAnalysis,
+            enhancedAnalysis: analysisResult.proAnalysis,
+            staticAnalysisResults: staticResults,
+            codeGraphResults: codeGraphResults,
+            analysisMetadata: {
+              mode: analysisResult.analysisMode,
+              processingTime: analysisResult.processingTime,
+              estimatedCost: analysisResult.totalCost
+            }
+          }),
+          analysisMode: `enhanced-${analysisResult.analysisMode}`,
           analysisStatus: "completed"
         })
         .where(eq(schema.aiSuggestions.pullRequestId, prId));
 
       // Update PR summary
       await db.update(schema.pullRequests)
-        .set({ summary: analysisResult.summary })
+        .set({ summary: analysisResult.proAnalysis.summary })
         .where(eq(schema.pullRequests.id, prId));
 
       res.json({ 
         success: true, 
-        message: "PR reanalyzed successfully",
-        hasDetailedAnalysis: !!analysisResult.detailedAnalysis
+        message: "Enhanced PR analysis completed successfully",
+        analysisMode: analysisResult.analysisMode,
+        processingTime: analysisResult.processingTime,
+        staticIssuesFound: staticResults?.summary.totalIssues || 0,
+        codeGraphSymbols: codeGraphResults?.summary.totalSymbols || 0,
+        finalVerdict: analysisResult.proAnalysis.finalVerdict,
+        contextMetrics: analysisResult.proAnalysis.contextMetrics
       });
     } catch (githubError) {
       console.error("Error fetching PR data from GitHub:", githubError);
@@ -295,7 +337,6 @@ app.get("/api/github/pull-requests", async (req, res) => {
     const { owner, repo } = req.query;
     const userToken = req.headers.authorization?.replace('Bearer ', '');
     
-    console.log(`Fetching PRs for: ${owner}/${repo}`);
     
     if (!owner || !repo) {
       return res.status(400).json({ error: "Owner and repo parameters are required" });
@@ -315,16 +356,13 @@ app.get("/api/github/pull-requests", async (req, res) => {
     const githubService = getGitHubService();
     
     // Get installation ID for the repository
-    console.log("Getting installation ID...");
     const installationId = await githubService.getInstallationId(owner as string, repo as string);
-    console.log("Installation ID:", installationId);
     
     if (!installationId) {
       return res.status(404).json({ error: "GitHub App not installed on this repository" });
     }
 
     // Use the GitHub service to fetch PRs with installation-scoped authentication
-    console.log("Fetching pull requests with installation-scoped auth...");
     
     const { Octokit } = await import("octokit");
     const { createAppAuth } = await import("@octokit/auth-app");
@@ -350,7 +388,6 @@ app.get("/api/github/pull-requests", async (req, res) => {
       per_page: 20
     });
 
-    console.log(`Found ${prs.length} open pull requests`);
 
     // Transform the data to match our schema
     const transformedPRs = prs.map(pr => ({
@@ -374,10 +411,22 @@ app.get("/api/github/pull-requests", async (req, res) => {
   }
 });
 
-// Analyze a specific GitHub PR with AI
+
+
+// Enhanced analyze PR endpoint
 app.post("/api/analyze-pr", async (req, res) => {
   try {
-    const { owner, repo, prNumber, userToken, enableMultiPass = false, enableStaticAnalysis = false } = req.body;
+
+    const { 
+      owner, 
+      repo, 
+      prNumber, 
+      userToken, 
+      enableMultiPass = false,
+      enableStaticAnalysis = true, // Default to true for enhanced analysis
+      enableCodeGraph = false,
+      forceDeepAnalysis = false 
+    } = req.body;
     
     if (!owner || !repo || !prNumber || !userToken) {
       return res.status(400).json({ error: "Owner, repo, prNumber, and userToken are required" });
@@ -390,10 +439,33 @@ app.post("/api/analyze-pr", async (req, res) => {
     }
 
     const githubService = getGitHubService();
-    const geminiService = getGeminiService();
     
+    // Use original Gemini service for now to avoid import issues
+    const geminiService = getGeminiService();
     if (!geminiService) {
       return res.status(500).json({ error: "Gemini AI service not available" });
+    }
+    
+    // Enhanced services (optional)
+    let staticAnalysisService = null;
+    let codeGraphService = null;
+    
+    if (enableStaticAnalysis) {
+      try {
+        const { getEnhancedStaticAnalysisService } = await import("./services/enhanced-static-analysis");
+        staticAnalysisService = getEnhancedStaticAnalysisService();
+      } catch (error) {
+        // Enhanced static analysis not available, continue without it
+      }
+    }
+    
+    if (enableCodeGraph) {
+      try {
+        const { getCodeGraphService } = await import("./services/code-graph");
+        codeGraphService = getCodeGraphService();
+      } catch (error) {
+        // Code graph service not available, continue without it
+      }
     }
 
     // Get installation ID
@@ -428,8 +500,24 @@ app.post("/api/analyze-pr", async (req, res) => {
       storedPR = newPR;
     }
 
-        // Run AI analysis
+        // Run analysis (enhanced if available, fallback to original)
         try {
+          // Step 1: Enhanced static analysis (if enabled and available)
+          let staticResults = null;
+          if (enableStaticAnalysis && staticAnalysisService) {
+            const fileContents = staticAnalysisService.extractFileContents(prData.diff);
+            staticResults = await staticAnalysisService.analyzeCodeEnhanced(fileContents, prData.diff);
+          }
+
+          // Step 2: Code graph analysis (if enabled and available)
+          let codeGraphResults = null;
+          if (enableCodeGraph && codeGraphService && staticAnalysisService) {
+            const fileContents = staticAnalysisService.extractFileContents(prData.diff);
+            const changedFileNames = prData.files.map(f => f.filename);
+            codeGraphResults = await codeGraphService.analyzeCodeGraph(fileContents, prData.diff, changedFileNames);
+          }
+
+          // Step 3: AI analysis (use original Gemini service for reliability)
           const analysisResult = await geminiService.analyzePullRequest(
             prData.pr.title,
             prData.pr.body || "",
@@ -440,9 +528,9 @@ app.post("/api/analyze-pr", async (req, res) => {
               deletions: file.deletions,
               changes: file.changes
             })),
-            enableMultiPass,
+            enableMultiPass || forceDeepAnalysis, // Use multipass if requested
             enableStaticAnalysis,
-            prData.enhancedContext || null
+            (prData as any).enhancedContext || null
           );
 
           // Store AI analysis results
@@ -451,28 +539,40 @@ app.post("/api/analyze-pr", async (req, res) => {
             summary: analysisResult.summary,
             refactorSuggestions: analysisResult.refactorSuggestions,
             potentialIssues: analysisResult.potentialIssues,
-            detailedAnalysis: analysisResult.detailedAnalysis ? JSON.stringify(analysisResult.detailedAnalysis) : null,
-            staticAnalysisResults: (analysisResult as any).staticAnalysisResults ? JSON.stringify((analysisResult as any).staticAnalysisResults) : null,
-            analysisMode: enableStaticAnalysis ? "static-enhanced" : enableMultiPass ? "multi-pass" : "single-pass",
+            detailedAnalysis: JSON.stringify({
+              ...(analysisResult.detailedAnalysis || {}),
+              staticAnalysisResults: staticResults,
+              codeGraphResults: codeGraphResults,
+              enhancedFeaturesUsed: {
+                staticAnalysis: !!staticResults,
+                codeGraph: !!codeGraphResults
+              }
+            }),
+            staticAnalysisResults: staticResults ? JSON.stringify(staticResults) : null,
+            analysisMode: enableStaticAnalysis ? "enhanced-static" : enableMultiPass ? "multi-pass" : "single-pass",
             analysisStatus: "completed"
           });
 
-      console.log(`Analysis completed for PR #${prNumber}: ${analysisResult.detailedAnalysis ? 'with detailed analysis' : 'basic analysis only'}`);
 
-      // Update the PR summary
-      await db.update(schema.pullRequests)
-        .set({ summary: analysisResult.summary })
-        .where(eq(schema.pullRequests.id, storedPR.id));
+          // Update the PR summary
+          await db.update(schema.pullRequests)
+            .set({ summary: analysisResult.summary })
+            .where(eq(schema.pullRequests.id, storedPR.id));
 
-      
-      res.json({
-        message: "AI analysis completed successfully",
-        prId: storedPR.id,
-        prNumber: prNumber,
-        summary: analysisResult.summary,
-        refactorSuggestions: analysisResult.refactorSuggestions,
-        potentialIssues: analysisResult.potentialIssues
-      });
+          res.json({
+            message: "AI analysis completed successfully",
+            prId: storedPR.id,
+            prNumber: prNumber,
+            summary: analysisResult.summary,
+            refactorSuggestions: analysisResult.refactorSuggestions,
+            potentialIssues: analysisResult.potentialIssues,
+            enhancedFeatures: {
+              staticAnalysisIssues: staticResults?.summary.totalIssues || 0,
+              codeGraphSymbols: codeGraphResults?.summary.totalSymbols || 0,
+              staticAnalysisEnabled: !!staticResults,
+              codeGraphEnabled: !!codeGraphResults
+            }
+          });
       
     } catch (aiError) {
       console.error("AI analysis error:", aiError);
@@ -593,121 +693,60 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
+// Helper function to convert enhanced analysis to legacy format
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function convertToLegacyFormat(proAnalysis: any) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const formatSuggestions = (suggestions: any[]) => {
+    return suggestions.map(s => 
+      `**${s.file} (${s.severity}):** ${s.issue}\n- ${s.suggestion}\n- Reasoning: ${s.reasoning}`
+    ).join('\n\n');
+  };
+
+  return {
+    summary: proAnalysis.summary,
+    refactorSuggestions: formatSuggestions(proAnalysis.refactorSuggestions || []),
+    potentialIssues: formatSuggestions(proAnalysis.potentialIssues || []),
+    detailedAnalysis: {
+      overview: `Enhanced Analysis: ${proAnalysis.summary}. Final Verdict: ${proAnalysis.finalVerdict}`,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      codeSuggestions: [...(proAnalysis.refactorSuggestions || []), ...(proAnalysis.potentialIssues || [])].map((s: any) => ({
+        file: s.file,
+        line: s.line || 1,
+        original: '// Issue detected',
+        suggested: s.suggestion,
+        reason: s.reasoning,
+        severity: s.severity,
+        category: s.category
+      })),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      securityConcerns: (proAnalysis.potentialIssues || [])
+        .filter((issue: any) => issue.category === 'Security')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((issue: any) => `${issue.file}: ${issue.issue}`),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      performanceImpact: (proAnalysis.potentialIssues || [])
+        .filter((issue: any) => issue.category === 'Performance')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((issue: any) => issue.issue)
+        .join('. ') || 'No specific performance issues identified',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      testingRecommendations: (proAnalysis.testRecommendations || [])
+        .map((test: any) => `${test.file}: ${test.suggestion}`),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      architecturalNotes: (proAnalysis.refactorSuggestions || [])
+        .filter((suggestion: any) => suggestion.category === 'Architecture')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((suggestion: any) => `${suggestion.file}: ${suggestion.suggestion}`)
+    }
+  };
+}
+
+
+
+
 const port = process.env.PORT || 3000;
-// Test endpoint for multi-pass analysis
-app.post("/api/test-multipass/:prId", async (req, res) => {
-  try {
-    const { prId } = req.params;
-    
-    // Trigger reanalysis with multi-pass enabled
-    const response = await fetch(`http://localhost:${port}/api/reanalyze-pr/${prId}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ enableMultiPass: true })
-    });
 
-    const result = await response.json();
-    
-    if (response.ok) {
-      res.json({ 
-        success: true, 
-        message: "Multi-pass analysis completed", 
-        ...result 
-      });
-    } else {
-      res.status(response.status).json(result);
-    }
-  } catch (error) {
-    console.error("Error testing multi-pass analysis:", error);
-    res.status(500).json({ 
-      error: "Failed to test multi-pass analysis", 
-      details: error instanceof Error ? error.message : 'Unknown error' 
-    });
-  }
-});
-
-// Context measurement endpoint
-app.get("/api/context-metrics/:prId", async (req, res) => {
-  try {
-    const { prId } = req.params;
-    const { db, schema } = await import("./db");
-    const { eq } = await import("drizzle-orm");
-
-    // Get the PR from database
-    const pr = await db.select().from(schema.pullRequests).where(eq(schema.pullRequests.id, parseInt(prId))).limit(1);
-    
-    if (pr.length === 0) {
-      return res.status(404).json({ error: "PR not found" });
-    }
-
-    const [owner, repoName] = pr[0].repo.split('/');
-    const githubService = getGitHubService();
-    
-    // Get installation ID
-    const installationId = await githubService.getInstallationId(owner, repoName);
-    if (!installationId) {
-      return res.status(404).json({ error: "GitHub App not installed" });
-    }
-
-    // Fetch enhanced PR data to measure context
-    const enhancedPRData = await githubService.getEnhancedPRData(
-      owner, 
-      repoName, 
-      pr[0].number, 
-      installationId
-    );
-
-    // Build context sections to measure
-    const { GeminiService } = await import("./services/gemini");
-    const geminiService = new GeminiService(process.env.GEMINI_API_KEY!);
-    
-    // Get context sections (this will log metrics)
-    const fileSummary = enhancedPRData.files.map((file: any) => 
-      `- ${file.filename}: +${file.additions} -${file.deletions}`
-    ).join('\n');
-
-    const contextSections = (geminiService as any).buildEnhancedContextSections(enhancedPRData.enhancedContext);
-    const contextMetrics = (geminiService as any).measureContextSize(
-      enhancedPRData.pr.title,
-      enhancedPRData.pr.body || "",
-      enhancedPRData.diff,
-      fileSummary,
-      contextSections
-    );
-
-    // Add enhanced context breakdown
-    const contextBreakdown = {
-      recentCommits: enhancedPRData.enhancedContext?.recentCommits?.length || 0,
-      branchContext: enhancedPRData.enhancedContext?.branchContext ? 'Available' : 'Not available',
-      linkedIssues: enhancedPRData.enhancedContext?.linkedIssues?.length || 0,
-      repoStructure: Object.keys(enhancedPRData.enhancedContext?.repoStructure || {}).length,
-      cicdChecks: enhancedPRData.enhancedContext?.cicdContext?.summary?.totalChecks || 0,
-      reviewComments: (enhancedPRData.enhancedContext?.reviewComments?.reviews?.length || 0) + 
-                     (enhancedPRData.enhancedContext?.reviewComments?.comments?.length || 0)
-    };
-
-    res.json({
-      prInfo: {
-        id: pr[0].id,
-        number: pr[0].number,
-        title: pr[0].title,
-        repo: pr[0].repo
-      },
-      contextMetrics,
-      contextBreakdown,
-      enhancedContextAvailable: !!enhancedPRData.enhancedContext
-    });
-
-  } catch (error) {
-    console.error("Error getting context metrics:", error);
-    res.status(500).json({ 
-      error: "Failed to get context metrics", 
-      details: error instanceof Error ? error.message : 'Unknown error' 
-    });
-  }
-});
 
 app.listen(port, () => {
 	console.log(`Server is running on port ${port}`);
