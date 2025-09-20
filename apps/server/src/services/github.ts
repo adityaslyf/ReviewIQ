@@ -1147,16 +1147,18 @@ export class GitHubService {
       }
 
       if (status.progress) {
-        const { stage, current, total, percentage } = status.progress;
-        const timeElapsed = Date.now() - status.progress.startTime;
-        const estimatedTotal = (timeElapsed / percentage) * 100;
-        const remainingTime = Math.max(0, estimatedTotal - timeElapsed);
+        const { stage, current, total, percentage, elapsedTime } = status.progress;
         
         console.log(`📊 Vector Progress: ${stage} - ${percentage.toFixed(1)}% (${current}/${total})`);
         
-        if (remainingTime > 1000) {
-          console.log(`⏱️  Estimated completion: ${Math.ceil(remainingTime / 1000)}s remaining`);
+        if (status.progress.estimatedCompletion) {
+          const remaining = (status.progress.estimatedCompletion.getTime() - Date.now()) / 1000;
+          if (remaining > 0) {
+            console.log(`⏱️  Estimated completion: ${Math.ceil(remaining)}s remaining`);
+          }
         }
+        
+        console.log(`⏰ Time elapsed: ${Math.ceil(elapsedTime)}s`);
       }
     }, 3000); // Update every 3 seconds
   }

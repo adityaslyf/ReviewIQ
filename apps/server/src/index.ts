@@ -182,13 +182,16 @@ app.post("/api/reanalyze-pr/:prId", async (req, res) => {
     const geminiApiKey = process.env.GEMINI_API_KEY;
     if (geminiApiKey) {
       try {
-        // Initialize vector service without codebase path initially
-        // It will be initialized with the actual repository when first PR is analyzed
-        await githubService.initializeVectorService(geminiApiKey);
-        console.log('Vector service ready for initialization');
+        // Initialize vector service with current working directory as codebase path
+        const codebasePath = process.cwd();
+        console.log('🚀 Initializing vector service with codebase:', codebasePath);
+        await githubService.initializeVectorService(geminiApiKey, codebasePath, true);
+        console.log('✅ Vector service initialization started in background');
       } catch (error) {
-        console.warn('Failed to initialize vector service:', error);
+        console.warn('❌ Failed to initialize vector service:', error);
       }
+    } else {
+      console.warn('⚠️ GEMINI_API_KEY not found - vector service will not be available');
     }
     
     
@@ -485,13 +488,16 @@ app.post("/api/analyze-pr", async (req, res) => {
     const geminiApiKey = process.env.GEMINI_API_KEY;
     if (geminiApiKey) {
       try {
-        // Initialize vector service without codebase path initially
-        // It will be initialized with the actual repository when first PR is analyzed
-        await githubService.initializeVectorService(geminiApiKey);
-        console.log('Vector service ready for initialization');
+        // Initialize vector service with current working directory as codebase path
+        const codebasePath = process.cwd();
+        console.log('🚀 Initializing vector service with codebase:', codebasePath);
+        await githubService.initializeVectorService(geminiApiKey, codebasePath, true);
+        console.log('✅ Vector service initialization started in background');
       } catch (error) {
-        console.warn('Failed to initialize vector service:', error);
+        console.warn('❌ Failed to initialize vector service:', error);
       }
+    } else {
+      console.warn('⚠️ GEMINI_API_KEY not found - vector service will not be available');
     }
     
     // Use original Gemini service for now to avoid import issues
