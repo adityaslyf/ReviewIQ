@@ -38,7 +38,7 @@ function LandingPage() {
                 with a Thoughtful AI Reviewer
               </h1>
               <p className="mt-4 max-w-2xl mx-auto text-gray-600">
-                ReviewIQ combines context-rich GitHub data, static analysis and Gemini AI to deliver
+                ReviewIQ combines context-rich GitHub data, static analysis and AI to deliver
                 actionable code suggestions, risk flags, and testing guidance—so your team ships faster.
               </p>
 

@@ -8,9 +8,7 @@ import {
   GitPullRequest, 
   Brain, 
   Database, 
-  Github, 
-  BarChart3,
-  Settings
+  BarChart3
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
@@ -121,23 +119,6 @@ function DashboardContent() {
             </BrutalistCard>
           </Link>
 
-          {/* Repositories Card */}
-          <Link to="/repositories">
-            <BrutalistCard
-              title="Repositories"
-              content="Connect and manage GitHub repositories for comprehensive analysis. Support for private repos with OAuth."
-              variant="default"
-              className="hover:cursor-pointer"
-            >
-              <div className="flex items-center gap-4 mb-4">
-                <Github className="h-8 w-8 text-gray-600" />
-                <div className="flex gap-2">
-                  <Badge className="bg-black text-white px-2 py-1 text-xs font-bold">OAUTH</Badge>
-                  <Badge className="bg-black text-white px-2 py-1 text-xs font-bold">PRIVATE</Badge>
-                </div>
-              </div>
-            </BrutalistCard>
-          </Link>
 
           {/* Stored Data Card */}
           <Link to="/stored">
@@ -157,23 +138,6 @@ function DashboardContent() {
             </BrutalistCard>
           </Link>
 
-          {/* Settings Card */}
-          <Link to="/settings">
-            <BrutalistCard
-              title="Settings"
-              content="Configure GitHub App, API keys, and personal preferences. Customize your ReviewIQ experience."
-              variant="default"
-              className="hover:cursor-pointer"
-            >
-              <div className="flex items-center gap-4 mb-4">
-                <Settings className="h-8 w-8 text-gray-600" />
-                <div className="flex gap-2">
-                  <Badge className="bg-black text-white px-2 py-1 text-xs font-bold">CONFIG</Badge>
-                  <Badge className="bg-black text-white px-2 py-1 text-xs font-bold">API</Badge>
-                </div>
-              </div>
-            </BrutalistCard>
-          </Link>
 
           {/* Analytics Card - Coming Soon */}
           <div className="opacity-75">

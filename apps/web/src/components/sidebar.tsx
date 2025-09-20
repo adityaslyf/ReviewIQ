@@ -8,7 +8,7 @@ import {
   Filter, 
   Brain, 
   Zap,
-  Settings,
+  Menu,
   BarChart3
 } from 'lucide-react';
 import { RepoSelector } from './repo-selector';
@@ -87,7 +87,7 @@ export function Sidebar({
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="p-2 hover:bg-gray-200"
           >
-            <Settings className="h-4 w-4 text-gray-600" />
+            <Menu className="h-4 w-4 text-gray-600" />
           </Button>
         </div>
       </div>

@@ -10,8 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StoredRouteImport } from './routes/stored'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as RepositoriesRouteImport } from './routes/repositories'
 import { Route as PullRequestsRouteImport } from './routes/pull-requests'
 import { Route as LandingRouteImport } from './routes/landing'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -22,16 +20,6 @@ import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 const StoredRoute = StoredRouteImport.update({
   id: '/stored',
   path: '/stored',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RepositoriesRoute = RepositoriesRouteImport.update({
-  id: '/repositories',
-  path: '/repositories',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PullRequestsRoute = PullRequestsRouteImport.update({
@@ -71,8 +59,6 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/landing': typeof LandingRoute
   '/pull-requests': typeof PullRequestsRoute
-  '/repositories': typeof RepositoriesRoute
-  '/settings': typeof SettingsRoute
   '/stored': typeof StoredRoute
   '/auth/callback': typeof AuthCallbackRoute
 }
@@ -82,8 +68,6 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/landing': typeof LandingRoute
   '/pull-requests': typeof PullRequestsRoute
-  '/repositories': typeof RepositoriesRoute
-  '/settings': typeof SettingsRoute
   '/stored': typeof StoredRoute
   '/auth/callback': typeof AuthCallbackRoute
 }
@@ -94,8 +78,6 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/landing': typeof LandingRoute
   '/pull-requests': typeof PullRequestsRoute
-  '/repositories': typeof RepositoriesRoute
-  '/settings': typeof SettingsRoute
   '/stored': typeof StoredRoute
   '/auth/callback': typeof AuthCallbackRoute
 }
@@ -107,8 +89,6 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/landing'
     | '/pull-requests'
-    | '/repositories'
-    | '/settings'
     | '/stored'
     | '/auth/callback'
   fileRoutesByTo: FileRoutesByTo
@@ -118,8 +98,6 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/landing'
     | '/pull-requests'
-    | '/repositories'
-    | '/settings'
     | '/stored'
     | '/auth/callback'
   id:
@@ -129,8 +107,6 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/landing'
     | '/pull-requests'
-    | '/repositories'
-    | '/settings'
     | '/stored'
     | '/auth/callback'
   fileRoutesById: FileRoutesById
@@ -141,8 +117,6 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   LandingRoute: typeof LandingRoute
   PullRequestsRoute: typeof PullRequestsRoute
-  RepositoriesRoute: typeof RepositoriesRoute
-  SettingsRoute: typeof SettingsRoute
   StoredRoute: typeof StoredRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
 }
@@ -154,20 +128,6 @@ declare module '@tanstack/react-router' {
       path: '/stored'
       fullPath: '/stored'
       preLoaderRoute: typeof StoredRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/repositories': {
-      id: '/repositories'
-      path: '/repositories'
-      fullPath: '/repositories'
-      preLoaderRoute: typeof RepositoriesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pull-requests': {
@@ -221,8 +181,6 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   LandingRoute: LandingRoute,
   PullRequestsRoute: PullRequestsRoute,
-  RepositoriesRoute: RepositoriesRoute,
-  SettingsRoute: SettingsRoute,
   StoredRoute: StoredRoute,
   AuthCallbackRoute: AuthCallbackRoute,
 }

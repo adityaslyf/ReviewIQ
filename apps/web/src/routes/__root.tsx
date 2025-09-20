@@ -1,6 +1,5 @@
 import Header from "@/components/header";
 import Loader from "@/components/loader";
-import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/auth-context";
 import {
@@ -43,12 +42,6 @@ function RootComponent() {
 	return (
 		<>
 			<HeadContent />
-			<ThemeProvider
-				attribute="class"
-				defaultTheme="dark"
-				disableTransitionOnChange
-				storageKey="vite-ui-theme"
-			>
 				<AuthProvider>
 					<div className="h-svh">
 						<Header />
@@ -58,7 +51,6 @@ function RootComponent() {
 					</div>
 					<Toaster richColors />
 				</AuthProvider>
-			</ThemeProvider>
 			<TanStackRouterDevtools position="bottom-left" />
 		</>
 	);
