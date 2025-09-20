@@ -1,10 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { BrutalistCard } from "./brutalist-card";
 import { 
   Brain, 
-  ArrowLeft, 
   GitPullRequest,
   ExternalLink,
   User,
@@ -64,7 +63,7 @@ async function fetchPullRequests(): Promise<PullRequest[]> {
   return response.json();
 }
 
-// Format AI suggestions for better display
+// Format AI suggestions with improved brutalist styling and code highlighting
 function formatAISuggestions(text: string) {
   const sections = text.split(/(?=\*\*[^*]+\*\*)/g).filter(section => section.trim());
   
@@ -76,47 +75,103 @@ function formatAISuggestions(text: string) {
       const header = headerMatch ? headerMatch[1] : '';
       const content = trimmedSection.replace(/^\*\*[^*]+\*\*:?\s*/, '');
       
-      let icon = <Info className="h-4 w-4" />;
-      let iconColor = "text-blue-500";
-      let bgColor = "bg-blue-50";
-      let borderColor = "border-blue-200";
+      let icon = <Info className="h-5 w-5" />;
+      let iconColor = "text-blue-600";
+      let borderColor = "border-gray-600";
+      let badgeColor = "bg-blue-600";
+      let severity = "INFO";
       
       if (header.toLowerCase().includes('high')) {
-        icon = <AlertTriangle className="h-4 w-4" />;
-        iconColor = "text-red-500";
-        bgColor = "bg-red-50";
-        borderColor = "border-red-200";
+        icon = <AlertTriangle className="h-5 w-5" />;
+        iconColor = "text-red-600";
+        borderColor = "border-gray-600";
+        badgeColor = "bg-red-600";
+        severity = "HIGH";
       } else if (header.toLowerCase().includes('medium')) {
-        icon = <AlertTriangle className="h-4 w-4" />;
-        iconColor = "text-orange-500";
-        bgColor = "bg-orange-50";
-        borderColor = "border-orange-200";
+        icon = <AlertTriangle className="h-5 w-5" />;
+        iconColor = "text-orange-600";
+        borderColor = "border-gray-600";
+        badgeColor = "bg-orange-600";
+        severity = "MEDIUM";
       } else if (header.toLowerCase().includes('low')) {
-        icon = <Info className="h-4 w-4" />;
-        iconColor = "text-green-500";
-        bgColor = "bg-green-50";
-        borderColor = "border-green-200";
+        icon = <Info className="h-5 w-5" />;
+        iconColor = "text-green-600";
+        borderColor = "border-gray-600";
+        badgeColor = "bg-green-600";
+        severity = "LOW";
       }
       
+      // Enhanced content formatting with code detection
+      const formatContent = (text: string) => {
+        // Split by code blocks (looking for patterns like `code` or file paths)
+        const parts = text.split(/(`[^`]+`|[a-zA-Z0-9_-]+\.[a-zA-Z]{2,4}|[a-zA-Z0-9_-]+\/[a-zA-Z0-9_.-]+)/g);
+        
+        return parts.map((part, i) => {
+          if (part.startsWith('`') && part.endsWith('`')) {
+            // Inline code
+            return (
+              <code key={i} className="bg-gray-800 text-green-400 px-2 py-1 rounded font-mono text-sm border border-gray-600">
+                {part.slice(1, -1)}
+              </code>
+            );
+          } else if (part.includes('.') && (part.includes('/') || part.match(/\.[a-zA-Z]{2,4}$/))) {
+            // File path
+            return (
+              <code key={i} className="bg-gray-200 text-gray-800 px-2 py-1 rounded font-mono text-sm border-2 border-gray-600 font-bold">
+                {part}
+              </code>
+            );
+          }
+          return <span key={i}>{part}</span>;
+        });
+      };
+      
       return (
-        <div key={index} className={`border ${borderColor} ${bgColor} rounded-lg p-4 mb-3`}>
-          <div className="flex items-start gap-2 mb-2">
-            <span className={iconColor}>{icon}</span>
-            <h4 className="font-semibold text-gray-900">{header}</h4>
+        <div key={index} className={`bg-white border-3 ${borderColor} p-6 mb-4 transition-all duration-200 hover:shadow-lg`}>
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <span className={iconColor}>{icon}</span>
+              <h4 className="font-bold text-black text-lg uppercase">{header}</h4>
+            </div>
+            <Badge className={`${badgeColor} text-white px-3 py-1 text-xs font-bold border-2 border-gray-800`}>
+              {severity}
+            </Badge>
           </div>
           {content && (
-            <p className="text-sm text-gray-700 leading-relaxed ml-6">
-              {content}
-            </p>
+            <div className="text-sm text-black leading-relaxed font-medium">
+              {formatContent(content)}
+            </div>
           )}
         </div>
       );
     } else {
+      // Regular content block
+      const formatContent = (text: string) => {
+        const parts = text.split(/(`[^`]+`|[a-zA-Z0-9_-]+\.[a-zA-Z]{2,4}|[a-zA-Z0-9_-]+\/[a-zA-Z0-9_.-]+)/g);
+        
+        return parts.map((part, i) => {
+          if (part.startsWith('`') && part.endsWith('`')) {
+            return (
+              <code key={i} className="bg-gray-800 text-green-400 px-2 py-1 rounded font-mono text-sm border border-gray-600">
+                {part.slice(1, -1)}
+              </code>
+            );
+          } else if (part.includes('.') && (part.includes('/') || part.match(/\.[a-zA-Z]{2,4}$/))) {
+            return (
+              <code key={i} className="bg-gray-200 text-gray-800 px-2 py-1 rounded font-mono text-sm border-2 border-gray-600 font-bold">
+                {part}
+              </code>
+            );
+          }
+          return <span key={i}>{part}</span>;
+        });
+      };
+      
       return (
-        <div key={index} className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-3">
-          <p className="text-sm text-gray-700 leading-relaxed">
-            {trimmedSection}
-          </p>
+        <div key={index} className="bg-white border-3 border-gray-600 p-6 mb-4">
+          <div className="text-sm text-black leading-relaxed font-medium">
+            {formatContent(trimmedSection)}
+          </div>
         </div>
       );
     }
@@ -178,13 +233,13 @@ export function AnalysisPage() {
 
         {/* Tabs for Analysis Details */}
         <div>
-          <div className="flex border-b border-gray-200 mb-4">
+          <div className="flex gap-3 mb-6">
             <button
               onClick={() => setActiveTab("refactor")}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              className={`px-4 py-3 text-sm font-bold border-3 transition-all ${
                 activeTab === "refactor"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                  ? "bg-blue-600 text-white border-blue-800"
+                  : "bg-white text-black border-gray-600 hover:bg-gray-100"
               }`}
             >
               <Wrench className="h-4 w-4 inline mr-2" />
@@ -192,10 +247,10 @@ export function AnalysisPage() {
             </button>
             <button
               onClick={() => setActiveTab("issues")}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              className={`px-4 py-3 text-sm font-bold border-3 transition-all ${
                 activeTab === "issues"
-                  ? "border-red-500 text-red-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                  ? "bg-red-600 text-white border-red-800"
+                  : "bg-white text-black border-gray-600 hover:bg-gray-100"
               }`}
             >
               <AlertTriangle className="h-4 w-4 inline mr-2" />
@@ -204,10 +259,10 @@ export function AnalysisPage() {
             {aiSuggestions.detailedAnalysis && (
               <button
                 onClick={() => setActiveTab("detailed")}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                className={`px-4 py-3 text-sm font-bold border-3 transition-all ${
                   activeTab === "detailed"
-                    ? "border-purple-500 text-purple-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
+                    ? "bg-purple-600 text-white border-purple-800"
+                    : "bg-white text-black border-gray-600 hover:bg-gray-100"
                 }`}
               >
                 <Brain className="h-4 w-4 inline mr-2" />
@@ -306,98 +361,93 @@ export function AnalysisPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 border-b border-white/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Link to="/dashboard">
-                  <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-900 hover:bg-gray-100">
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Dashboard
-                  </Button>
-                </Link>
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                    <Brain className="h-8 w-8 text-purple-600" />
-                    AI Analysis Results
-                  </h1>
-                  <p className="mt-1 text-gray-600">
-                    View detailed AI-powered code review insights
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Badge variant="outline" className="text-gray-600 border-gray-300">{analyzedPRs.length} Analyzed PRs</Badge>
-                <Link to="/pull-requests">
-                  <Button variant="outline" size="sm" className="text-gray-600 border-gray-300 hover:bg-gray-100 hover:text-gray-900">
-                    Browse PRs
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <section className="relative overflow-hidden bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 py-8 min-h-screen">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Clean Header Section */}
+          <div className="flex items-center justify-between mb-12">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3 mb-2">
+                <Brain className="h-8 w-8 text-gray-600" />
+                AI Analysis Results
+              </h1>
+              <p className="text-gray-600">
+                View detailed AI-powered code review insights
+              </p>
+            </div>
+            <div className="flex items-center gap-12">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-gray-900">{analyzedPRs.length}</div>
+                <div className="text-sm text-gray-500 uppercase">Analyzed PRs</div>
+              </div>
+              <Link to="/pull-requests">
+                <Button variant="outline" size="sm" className="text-gray-600 border-2 border-gray-600 hover:bg-gray-600 hover:text-white font-bold">
+                  Browse PRs
+                </Button>
+              </Link>
+            </div>
+          </div>
         {selectedPR ? (
           /* Single PR Analysis View */
           <div className="grid grid-cols-12 gap-8">
             {/* PR Info Sidebar */}
             <div className="col-span-3">
-              <Card className="border border-gray-200 bg-white">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <GitPullRequest className="h-5 w-5 text-green-600" />
-                    PR Details
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-2">{selectedPR.title}</h3>
-                    <div className="space-y-2 text-sm text-gray-600">
-                      <div className="flex items-center gap-2">
-                        <User className="h-3 w-3" />
-                        <span>{selectedPR.author}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-3 w-3" />
-                        <span>{new Date(selectedPR.createdAt).toLocaleDateString()}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">#{selectedPR.number}</Badge>
-                      </div>
-                      <div>
-                        <code className="text-xs bg-gray-100 px-2 py-1 rounded">
-                          {selectedPR.repo}
-                        </code>
-                      </div>
-                    </div>
+              <BrutalistCard
+                title="PR Details"
+                content={selectedPR.title}
+                variant="default"
+                className="w-full max-w-none"
+              >
+                <div className="flex items-center gap-4 mb-4">
+                  <GitPullRequest className="h-8 w-8 text-gray-600" />
+                  <div className="flex gap-2">
+                    <Badge className="bg-black text-white px-2 py-1 text-xs font-bold">#{selectedPR.number}</Badge>
+                  </div>
+                </div>
+                
+                <div className="space-y-3 mb-4">
+                  <div className="flex items-center gap-2 text-sm text-black">
+                    <User className="h-4 w-4" />
+                    <span className="font-medium">{selectedPR.author}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-black">
+                    <Calendar className="h-4 w-4" />
+                    <span>{new Date(selectedPR.createdAt).toLocaleDateString()}</span>
                   </div>
                   <div>
-                    <a
-                      href={selectedPR.url || `https://github.com/${selectedPR.repo}/pull/${selectedPR.number}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
-                    >
-                      View on GitHub <ExternalLink className="h-3 w-3" />
-                    </a>
+                    <code className="text-xs bg-gray-200 text-black px-2 py-1 rounded font-bold border-2 border-gray-600">
+                      {selectedPR.repo}
+                    </code>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+                
+                <a
+                  href={selectedPR.url || `https://github.com/${selectedPR.repo}/pull/${selectedPR.number}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-bold"
+                >
+                  View on GitHub <ExternalLink className="h-3 w-3" />
+                </a>
+              </BrutalistCard>
             </div>
 
             {/* Analysis Content */}
             <div className="col-span-9">
-              <Card className="border border-gray-200 bg-white">
-                <CardContent className="p-6">
-                  {renderAIAnalysis(selectedPR)}
-                </CardContent>
-              </Card>
+              <BrutalistCard
+                title="AI Analysis"
+                content="Detailed code review insights and suggestions"
+                variant="purple"
+                className="w-full max-w-none"
+              >
+                <div className="flex items-center gap-4 mb-6">
+                  <Brain className="h-8 w-8 text-gray-600" />
+                  <div className="flex gap-2">
+                    <Badge className="bg-black text-white px-2 py-1 text-xs font-bold">AI</Badge>
+                    <Badge className="bg-black text-white px-2 py-1 text-xs font-bold">ANALYSIS</Badge>
+                  </div>
+                </div>
+                {renderAIAnalysis(selectedPR)}
+              </BrutalistCard>
             </div>
           </div>
         ) : (
@@ -418,62 +468,62 @@ export function AnalysisPage() {
                 </Link>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {analyzedPRs.map((pr) => (
-                  <Card key={`${pr.repo}-${pr.number}`} className="hover:shadow-lg transition-shadow border border-gray-200 bg-white">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <GitPullRequest className="h-4 w-4 text-green-600" />
-                          <Badge className="bg-green-100 text-green-800 text-xs border border-green-200">
-                            AI Analyzed
-                          </Badge>
-                        </div>
-                        <Badge variant="outline" className="text-xs border-gray-300 text-gray-700">#{pr.number}</Badge>
+                  <BrutalistCard
+                    key={`${pr.repo}-${pr.number}`}
+                    title={`PR #${pr.number}`}
+                    content={pr.title}
+                    variant="purple"
+                    className="hover:cursor-pointer w-full max-w-none"
+                  >
+                    <div className="flex items-center gap-4 mb-4">
+                      <GitPullRequest className="h-8 w-8 text-gray-600" />
+                      <div className="flex gap-2">
+                        <Badge className="bg-black text-white px-2 py-1 text-xs font-bold">AI ✓</Badge>
+                        <Badge className="bg-black text-white px-2 py-1 text-xs font-bold">ANALYZED</Badge>
                       </div>
+                    </div>
 
-                      <h3 className="font-semibold text-gray-900 mb-3 line-clamp-2">
-                        {pr.title}
-                      </h3>
-
-                      <div className="space-y-2 mb-4">
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <User className="h-3 w-3" />
-                          <span>{pr.author}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <Calendar className="h-3 w-3" />
-                          <span>{new Date(pr.createdAt).toLocaleDateString()}</span>
-                        </div>
-                        <div>
-                          <code className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded border">
-                            {pr.repo}
-                          </code>
-                        </div>
+                    <div className="space-y-3 mb-4">
+                      <div className="flex items-center gap-2 text-sm text-black">
+                        <User className="h-4 w-4" />
+                        <span className="font-medium">{pr.author}</span>
                       </div>
+                      <div className="flex items-center gap-2 text-sm text-black">
+                        <Calendar className="h-4 w-4" />
+                        <span>{new Date(pr.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      <div>
+                        <code className="text-xs bg-gray-200 text-black px-2 py-1 rounded font-bold border-2 border-gray-600">
+                          {pr.repo}
+                        </code>
+                      </div>
+                    </div>
 
-                      <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center gap-2">
                         <a
                           href={pr.url || `https://github.com/${pr.repo}/pull/${pr.number}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium"
+                          className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 font-bold"
                         >
-                          View <ExternalLink className="h-3 w-3" />
+                          View PR <ExternalLink className="h-3 w-3" />
                         </a>
-                        
-                        <Link
-                          to="/analysis"
-                          search={{ repo: pr.repo, number: pr.number }}
-                        >
-                          <Button size="sm" className="text-xs bg-purple-600 hover:bg-purple-700 text-white">
-                            <Brain className="h-3 w-3 mr-1" />
-                            View Analysis
-                          </Button>
-                        </Link>
                       </div>
-                    </CardContent>
-                  </Card>
+                      
+                      <Link
+                        to="/analysis"
+                        search={{ repo: pr.repo, number: pr.number }}
+                      >
+                        <Button size="sm" className="w-full text-xs bg-purple-600 hover:bg-purple-700 text-white border-2 border-purple-800 font-bold">
+                          <Brain className="h-3 w-3 mr-1" />
+                          View Analysis
+                        </Button>
+                      </Link>
+                    </div>
+                  </BrutalistCard>
                 ))}
               </div>
             )}

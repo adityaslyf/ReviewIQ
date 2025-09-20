@@ -12,12 +12,12 @@ interface BrutalistCardProps {
 
 const variantStyles = {
   default: 'border-gray-600',
-  green: 'border-green-600',
-  purple: 'border-purple-600',
-  blue: 'border-blue-600',
-  orange: 'border-orange-600',
+  green: 'border-gray-600',
+  purple: 'border-gray-600',
+  blue: 'border-gray-600',
+  orange: 'border-gray-600',
   gray: 'border-gray-600',
-  indigo: 'border-indigo-600',
+  indigo: 'border-gray-600',
 };
 
 export function BrutalistCard({ 
