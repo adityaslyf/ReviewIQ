@@ -3,14 +3,98 @@ import { Button } from "@/components/ui/button";
 import { Github, Mail, Linkedin, Twitter } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import dashboardImage from "@/assets/dashboard.png";
+import { useEffect, useRef } from "react";
+import { gsap } from "gsap";
 
 export const Route = createFileRoute("/landing")({
   component: LandingPage,
 });
 
+function AnimatedHeroText() {
+  const textRef = useRef<HTMLDivElement>(null);
+  const word1Ref = useRef<HTMLSpanElement>(null);
+  const word2Ref = useRef<HTMLSpanElement>(null);
+  const word3Ref = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      // Set initial states
+      gsap.set([word1Ref.current, word2Ref.current, word3Ref.current], {
+        y: 60,
+        opacity: 0,
+        rotationX: 45,
+        transformOrigin: "50% 50% -30px",
+      });
+
+      // Create timeline for fast water-like flow
+      const tl = gsap.timeline();
+
+      // First word - "Developers," - quick flow
+      tl.to(word1Ref.current, {
+        duration: 0.6,
+        y: 0,
+        opacity: 1,
+        rotationX: 0,
+        ease: "power2.out",
+      })
+      // Second word - "welcome" - fast ripple
+      .to(word2Ref.current, {
+        duration: 0.5,
+        y: 0,
+        opacity: 1,
+        rotationX: 0,
+        ease: "back.out(1.2)",
+      }, "-=0.3")
+      // Third word - "home." - snappy finish
+      .to(word3Ref.current, {
+        duration: 0.4,
+        y: 0,
+        opacity: 1,
+        rotationX: 0,
+        ease: "power2.out",
+      }, "-=0.2");
+
+    }, textRef);
+
+    return () => ctx.revert();
+  }, []);
+
+  return (
+    <div ref={textRef} className="relative">
+      <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight text-gray-900 leading-tight">
+        <span 
+          ref={word1Ref}
+          className="inline-block"
+          style={{ perspective: "1000px" }}
+        >
+          Developers,
+        </span>
+        <br />
+        <span 
+          ref={word2Ref}
+          className="inline-block"
+          style={{ perspective: "1000px" }}
+        >
+          welcome
+        </span>{' '}
+        <span 
+          ref={word3Ref}
+          className="inline-block"
+          style={{ perspective: "1000px" }}
+        >
+          home.
+        </span>
+      </h1>
+    </div>
+  );
+}
+
 function LandingPage() {
   const { isAuthenticated, login } = useAuth();
   const navigate = useNavigate();
+  const descriptionRef = useRef<HTMLParagraphElement>(null);
+  const buttonRef = useRef<HTMLDivElement>(null);
+  const requiresTextRef = useRef<HTMLParagraphElement>(null);
 
   const handlePrimaryCta = () => {
     if (isAuthenticated) {
@@ -20,6 +104,40 @@ function LandingPage() {
     }
   };
 
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      // Set initial states
+      gsap.set([descriptionRef.current, buttonRef.current, requiresTextRef.current], {
+        y: 20,
+        opacity: 0,
+      });
+
+      // Animate elements quickly after hero text
+      const tl = gsap.timeline({ delay: 1.0 });
+      
+      tl.to(descriptionRef.current, {
+        duration: 0.4,
+        y: 0,
+        opacity: 1,
+        ease: "power2.out",
+      })
+      .to(buttonRef.current, {
+        duration: 0.3,
+        y: 0,
+        opacity: 1,
+        ease: "back.out(1.2)",
+      }, "-=0.2")
+      .to(requiresTextRef.current, {
+        duration: 0.2,
+        y: 0,
+        opacity: 1,
+        ease: "power2.out",
+      }, "-=0.1");
+    });
+
+    return () => ctx.revert();
+  }, []);
+
   return (
     <div className="min-h-screen force-light bg-gradient-to-b from-orange-50 to-yellow-50">
       {/* Hero */}
@@ -27,18 +145,17 @@ function LandingPage() {
 
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center">
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight text-gray-900 leading-tight">
-              Developers,
-              <br />
-              welcome home.
-            </h1>
+            <AnimatedHeroText />
             
-            <p className="mt-8 max-w-2xl mx-auto text-lg md:text-xl text-gray-600 leading-relaxed">
+            <p 
+              ref={descriptionRef}
+              className="mt-8 max-w-2xl mx-auto text-lg md:text-xl text-gray-600 leading-relaxed"
+            >
               ReviewIQ is a toolkit made by developers, for developers, that
               puts the focus on you and your work.
             </p>
 
-            <div className="mt-12">
+            <div ref={buttonRef} className="mt-12">
               <Button 
                 onClick={handlePrimaryCta} 
                 className="h-14 px-8 bg-orange-500 hover:bg-orange-600 text-white font-semibold text-lg rounded-full shadow-lg hover:shadow-xl transition-all duration-200"
@@ -52,7 +169,7 @@ function LandingPage() {
               </Button>
             </div>
 
-            <p className="mt-6 text-sm text-gray-500">
+            <p ref={requiresTextRef} className="mt-6 text-sm text-gray-500">
               Requires GitHub account
             </p>
           </div>
