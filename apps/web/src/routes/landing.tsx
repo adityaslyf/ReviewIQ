@@ -141,7 +141,7 @@ function LandingPage() {
   return (
     <div className="min-h-screen force-light bg-gradient-to-b from-orange-50 to-yellow-50">
       {/* Hero */}
-      <section className="relative overflow-hidden py-20 md:py-32">
+      <section className="relative overflow-hidden py-12 md:py-16">
 
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center">
@@ -149,13 +149,13 @@ function LandingPage() {
             
             <p 
               ref={descriptionRef}
-              className="mt-8 max-w-2xl mx-auto text-lg md:text-xl text-gray-600 leading-relaxed"
+              className="mt-6 max-w-2xl mx-auto text-lg md:text-xl text-gray-600 leading-relaxed"
             >
               ReviewIQ is a toolkit made by developers, for developers, that
               puts the focus on you and your work.
             </p>
 
-            <div ref={buttonRef} className="mt-12">
+            <div ref={buttonRef} className="mt-8">
               <Button 
                 onClick={handlePrimaryCta} 
                 className="h-14 px-8 bg-orange-500 hover:bg-orange-600 text-white font-semibold text-lg rounded-full shadow-lg hover:shadow-xl transition-all duration-200"
@@ -169,7 +169,7 @@ function LandingPage() {
               </Button>
             </div>
 
-            <p ref={requiresTextRef} className="mt-6 text-sm text-gray-500">
+            <p ref={requiresTextRef} className="mt-4 text-sm text-gray-500">
               Requires GitHub account
             </p>
           </div>
@@ -181,7 +181,7 @@ function LandingPage() {
 
 
       {/* Key Benefits Section - aligned with browser preview */}
-      <section className="py-20 bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50">
+      <section className="py-16 bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <KeyBenefitsCard />
         </div>
@@ -195,7 +195,7 @@ function LandingPage() {
 
 function BrowserPreview() {
   return (
-    <div className="mt-20 relative flex flex-col items-center">
+    <div className="mt-12 relative flex flex-col items-center">
       {/* Subtle glow effect behind the preview */}
       <div className="absolute inset-0 bg-gradient-to-r from-orange-400/10 via-yellow-400/10 to-pink-400/10 blur-3xl transform scale-110"></div>
       
@@ -253,11 +253,11 @@ function KeyBenefitsCard() {
       <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">
         Why developers choose ReviewIQ
       </h2>
-      <p className="text-lg md:text-xl text-gray-600 mb-16 max-w-3xl mx-auto leading-relaxed">
+      <p className="text-lg md:text-xl text-gray-600 mb-12 max-w-3xl mx-auto leading-relaxed">
         Built for modern development teams who value quality and speed.
       </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mt-16">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mt-12">
         {benefits.map((benefit, index) => (
           <div key={index} className="text-center">
             <div className="inline-flex items-center justify-center w-12 h-12 bg-orange-100 rounded-full mb-6">
