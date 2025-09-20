@@ -1,17 +1,9 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { CodePatch } from './sandbox-validator';
+import type { CodePatch, AISuggestion } from '../types/sandbox';
 
-export interface AISuggestion {
-  file: string;
-  line?: number;
-  issue: string;
-  suggestion: string;
-  reasoning: string;
-  severity: 'error' | 'warning' | 'info';
-  category: 'Security' | 'Performance' | 'Maintainability' | 'Style' | 'Bug' | 'Architecture';
-  patch?: string;
-}
+// Re-export types for backward compatibility
+export type { CodePatch, AISuggestion };
 
 export interface PatchGenerationResult {
   patches: CodePatch[];

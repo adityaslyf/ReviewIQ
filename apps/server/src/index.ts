@@ -553,31 +553,48 @@ app.post("/api/analyze-pr", async (req, res) => {
           let sandboxResults = null;
           if (enableSandboxValidation && sandboxValidatorService && patchGeneratorService) {
             try {
+              console.log('🔧 Starting sandbox validation...');
+              
               // Extract AI suggestions from analysis result
               const aiSuggestions = extractAISuggestions(analysisResult);
+              console.log(`📊 Extracted ${aiSuggestions.length} AI suggestions for sandbox validation`);
               
               if (aiSuggestions.length > 0) {
                 // Generate patches from AI suggestions
                 const fileContents = await patchGeneratorService.extractFileContents(prData.diff);
+                console.log(`📁 Extracted file contents for ${Object.keys(fileContents).length} files`);
                 
                 const patchResults = await patchGeneratorService.generatePatches(aiSuggestions, fileContents);
+                console.log(`🔨 Generated ${patchResults.patches.length} patches from AI suggestions`);
                 
                 if (patchResults.patches.length > 0) {
                   // Validate patches in sandbox
                   const repoUrl = `https://github.com/${owner}/${repo}.git`;
                   const branchName = prData.pr.head?.ref || 'main';
                   
+                  console.log(`🐳 Running sandbox validation for ${patchResults.patches.length} patches...`);
                   sandboxResults = await sandboxValidatorService.validatePatches(
                     repoUrl,
                     branchName,
                     patchResults.patches
                   );
+                  console.log(`✅ Sandbox validation completed: ${sandboxResults.length} results`);
+                } else {
+                  console.log('⚠️ No patches generated, skipping sandbox validation');
                 }
+              } else {
+                console.log('⚠️ No AI suggestions found, skipping sandbox validation');
               }
             } catch (sandboxError) {
-              console.warn("Sandbox validation failed:", sandboxError);
+              console.error("❌ Sandbox validation failed:", sandboxError);
               // Continue without sandbox results
             }
+          } else {
+            console.log('⚠️ Sandbox validation not available:', {
+              enabled: enableSandboxValidation,
+              hasValidator: !!sandboxValidatorService,
+              hasPatchGenerator: !!patchGeneratorService
+            });
           }
 
           // Store AI analysis results

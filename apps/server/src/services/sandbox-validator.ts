@@ -3,6 +3,7 @@ import { promisify } from 'util';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
+import type { CodePatch } from '../types/sandbox';
 
 const execAsync = promisify(exec);
 
@@ -44,14 +45,6 @@ export interface SandboxValidationResult {
     recommendation: 'approve' | 'review' | 'reject';
     reasoning: string;
   };
-}
-
-export interface CodePatch {
-  file: string;
-  originalContent: string;
-  patchedContent: string;
-  description: string;
-  type: 'fix' | 'refactor' | 'optimization' | 'security';
 }
 
 export class SandboxValidatorService {
