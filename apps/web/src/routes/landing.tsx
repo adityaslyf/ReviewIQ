@@ -24,38 +24,13 @@ function LandingPage() {
     <div className="min-h-screen force-light bg-gradient-to-b from-orange-50 to-yellow-50">
       {/* Hero */}
       <section className="relative overflow-hidden py-20 md:py-32">
-        {/* Background decorative elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          {/* Floating circles */}
-          <div className="absolute top-20 left-10 w-32 h-32 bg-orange-200/30 rounded-full blur-xl"></div>
-          <div className="absolute top-40 right-20 w-24 h-24 bg-yellow-200/40 rounded-full blur-lg"></div>
-          <div className="absolute bottom-40 left-20 w-20 h-20 bg-pink-200/30 rounded-full blur-lg"></div>
-          <div className="absolute bottom-20 right-10 w-28 h-28 bg-orange-300/20 rounded-full blur-xl"></div>
-          
-          {/* Grid pattern */}
-          <div className="absolute inset-0 opacity-[0.02]">
-            <div className="absolute inset-0" style={{
-              backgroundImage: `linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px),
-                               linear-gradient(90deg, rgba(0,0,0,0.1) 1px, transparent 1px)`,
-              backgroundSize: '60px 60px'
-            }}></div>
-          </div>
-        </div>
 
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center">
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 bg-white/60 backdrop-blur-sm border border-orange-200/50 rounded-full px-4 py-2 mb-8 shadow-sm">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-sm font-medium text-gray-700">AI-Powered Code Reviews</span>
-            </div>
-
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight text-gray-900 leading-tight">
               Developers,
               <br />
-              <span className="bg-gradient-to-r from-orange-600 via-orange-500 to-yellow-500 bg-clip-text text-transparent">
-                welcome home.
-              </span>
+              welcome home.
             </h1>
             
             <p className="mt-8 max-w-2xl mx-auto text-lg md:text-xl text-gray-600 leading-relaxed">
@@ -63,10 +38,10 @@ function LandingPage() {
               puts the focus on you and your work.
             </p>
 
-            <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <div className="mt-12">
               <Button 
                 onClick={handlePrimaryCta} 
-                className="h-14 px-8 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold text-lg rounded-full shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                className="h-14 px-8 bg-orange-500 hover:bg-orange-600 text-white font-semibold text-lg rounded-full shadow-lg hover:shadow-xl transition-all duration-200"
               >
                 {isAuthenticated ? "Go to Dashboard" : (
                   <span className="inline-flex items-center gap-2">
@@ -75,32 +50,10 @@ function LandingPage() {
                   </span>
                 )}
               </Button>
-              
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <div className="flex -space-x-2">
-                  {/* Girl avatar */}
-                  <div className="w-8 h-8 rounded-full border-2 border-white shadow-sm flex items-center justify-center text-lg">
-                    👩‍💻
-                  </div>
-                  {/* Boy avatar */}
-                  <div className="w-8 h-8 rounded-full border-2 border-white shadow-sm flex items-center justify-center text-lg">
-                    👨‍💻
-                  </div>
-                  {/* Additional developer */}
-                  <div className="w-8 h-8 rounded-full border-2 border-white shadow-sm flex items-center justify-center text-lg">
-                    👩‍💼
-                  </div>
-                  {/* Count indicator */}
-                  <div className="w-8 h-8 bg-gray-200 rounded-full border-2 border-white shadow-sm flex items-center justify-center text-xs font-bold text-gray-600">
-                    +5k
-                  </div>
-                </div>
-                <span>developers trust ReviewIQ</span>
-              </div>
             </div>
 
             <p className="mt-6 text-sm text-gray-500">
-              Requires GitHub account • Free forever
+              Requires GitHub account
             </p>
           </div>
 
@@ -169,7 +122,7 @@ function KeyBenefitsCard() {
       description: "Advanced AI reviews your code for quality, security, and performance issues with context-aware suggestions."
     },
     {
-      title: "Seamless GitHub Integration",
+      title: "Seamless GitHub Integration", 
       description: "Works directly with your GitHub workflow. No setup required - just connect and start reviewing."
     },
     {
@@ -183,7 +136,7 @@ function KeyBenefitsCard() {
       <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">
         Why developers choose ReviewIQ
       </h2>
-      <p className="text-lg md:text-xl text-gray-600 mb-16 max-w-3xl mx-auto">
+      <p className="text-lg md:text-xl text-gray-600 mb-16 max-w-3xl mx-auto leading-relaxed">
         Built for modern development teams who value quality and speed.
       </p>
 
@@ -193,8 +146,10 @@ function KeyBenefitsCard() {
             <div className="inline-flex items-center justify-center w-12 h-12 bg-orange-100 rounded-full mb-6">
               <span className="text-2xl">✓</span>
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-4">{benefit.title}</h3>
-            <p className="text-gray-600 leading-relaxed">
+            <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-4">
+              {benefit.title}
+            </h3>
+            <p className="text-gray-600 leading-relaxed text-base md:text-lg">
               {benefit.description}
             </p>
           </div>
