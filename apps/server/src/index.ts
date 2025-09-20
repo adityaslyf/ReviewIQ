@@ -14,12 +14,27 @@ app.use(express.json());
 
 app.use(
 	cors({
-		origin: process.env.CORS_ORIGIN || "",
-		methods: ["GET", "POST", "OPTIONS"],
+		origin: [
+			process.env.CORS_ORIGIN || "http://localhost:3001",
+			"http://localhost:3000",
+			"http://127.0.0.1:3001",
+			"http://127.0.0.1:3000"
+		],
+		methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
+		credentials: true,
 	}),
 );
 
 app.use(express.json());
+
+// Request logging middleware
+app.use((req, res, next) => {
+  // Only log non-status requests to reduce noise
+  if (!req.path.includes('/api/vector-status')) {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - Origin: ${req.get('Origin') || 'none'}`);
+  }
+  next();
+});
 
 // Initialize GitHub service only when needed
 let githubService: GitHubService | null = null;
@@ -163,11 +178,33 @@ app.post("/api/reanalyze-pr/:prId", async (req, res) => {
     const staticAnalysisService = getEnhancedStaticAnalysisService();
     const codeGraphService = getCodeGraphService();
     
+    // Initialize vector embedding service if Gemini API key is available
+    const geminiApiKey = process.env.GEMINI_API_KEY;
+    if (geminiApiKey) {
+      try {
+        // Initialize vector service without codebase path initially
+        // It will be initialized with the actual repository when first PR is analyzed
+        await githubService.initializeVectorService(geminiApiKey);
+        console.log('Vector service ready for initialization');
+      } catch (error) {
+        console.warn('Failed to initialize vector service:', error);
+      }
+    }
+    
     
     try {
       // Fetch fresh PR data from GitHub
       const [owner, repo] = prData.repo.split('/');
       const installationId = process.env.GITHUB_INSTALLATION_ID;
+      
+      console.log(`\n🚀 ===== STARTING ENHANCED PR ANALYSIS =====`);
+      console.log(`📋 Repository: ${owner}/${repo}`);
+      console.log(`🔢 PR Number: ${prData.number}`);
+      console.log(`📝 PR Title: ${prData.title}`);
+      console.log(`⚙️ Static Analysis: ${enableStaticAnalysis ? 'ENABLED' : 'DISABLED'}`);
+      console.log(`📊 Code Graph: ${enableCodeGraph ? 'ENABLED' : 'DISABLED'}`);
+      console.log(`🔍 Deep Analysis: ${forceDeepAnalysis ? 'ENABLED' : 'DISABLED'}`);
+      console.log(`===============================================\n`);
       
       if (!installationId) {
         throw new Error("GITHUB_INSTALLATION_ID not configured");
@@ -201,6 +238,7 @@ app.post("/api/reanalyze-pr/:prId", async (req, res) => {
       }
 
       // Step 3: Enhanced AI analysis with multi-model approach
+      console.log(`🤖 Starting AI analysis with enhanced context...`);
       const analysisResult = await enhancedGeminiService.analyzeWithMultiModel(
         pr.title,
         pr.body || "",
@@ -222,6 +260,7 @@ app.post("/api/reanalyze-pr/:prId", async (req, res) => {
         }
       );
 
+      console.log(`✅ AI analysis completed successfully!`);
 
       // Convert structured result to legacy format for database compatibility
       const legacyResult = convertToLegacyFormat(analysisResult.proAnalysis);
@@ -417,7 +456,7 @@ app.get("/api/github/pull-requests", async (req, res) => {
 // Enhanced analyze PR endpoint
 app.post("/api/analyze-pr", async (req, res) => {
   try {
-
+    console.log('🔍 PR Analysis requested for:', req.body.owner + '/' + req.body.repo + '#' + req.body.prNumber);
     const { 
       owner, 
       repo, 
@@ -441,6 +480,19 @@ app.post("/api/analyze-pr", async (req, res) => {
     }
 
     const githubService = getGitHubService();
+    
+    // Initialize vector embedding service if Gemini API key is available
+    const geminiApiKey = process.env.GEMINI_API_KEY;
+    if (geminiApiKey) {
+      try {
+        // Initialize vector service without codebase path initially
+        // It will be initialized with the actual repository when first PR is analyzed
+        await githubService.initializeVectorService(geminiApiKey);
+        console.log('Vector service ready for initialization');
+      } catch (error) {
+        console.warn('Failed to initialize vector service:', error);
+      }
+    }
     
     // Use original Gemini service for now to avoid import issues
     const geminiService = getGeminiService();
@@ -960,6 +1012,45 @@ app.post("/api/test-sandbox", async (req, res) => {
     res.status(500).json({ 
       error: "Sandbox test failed", 
       details: error instanceof Error ? error.message : 'Unknown error' 
+    });
+  }
+});
+
+// Vector service status endpoint
+app.get("/api/vector-status", (req, res) => {
+  try {
+    const githubService = getGitHubService();
+    const status = githubService.getVectorServiceStatus();
+    res.json({
+      status: "OK",
+      vectorService: status,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "ERROR",
+      error: "Failed to get vector service status",
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Reset vector service for testing
+app.post("/api/vector-reset", (req, res) => {
+  try {
+    const githubService = getGitHubService();
+    githubService.resetVectorService();
+    console.log('🔄 Vector service reset - ready for re-initialization');
+    res.json({
+      status: "OK",
+      message: "Vector service reset successfully",
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "ERROR",
+      error: "Failed to reset vector service",
+      timestamp: new Date().toISOString()
     });
   }
 });

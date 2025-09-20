@@ -774,7 +774,164 @@ ${ci.checkRuns.length > 0 ? `**Recent Checks:** ${ci.checkRuns.slice(0, 3).map((
       }
     }
 
+    // 7. FULL FILE CONTEXT - Complete file content for better understanding
+    if (enhancedContext.fullFileContext && Object.keys(enhancedContext.fullFileContext).length > 0) {
+      contextSections += `
+## 📄 Complete File Context (Full Codebase Access)`;
+      
+      Object.entries(enhancedContext.fullFileContext).forEach(([filename, fileData]: [string, any]) => {
+        contextSections += `
+
+### ${filename} (${fileData.lines} lines, ${fileData.size} chars)
+\`\`\`${this.getFileExtension(filename)}
+${fileData.content}
+\`\`\``;
+      });
+    }
+
+    // 8. RELATED CODE CONTEXT - Dependencies and related files
+    if (enhancedContext.relatedCode) {
+      const relatedCode = enhancedContext.relatedCode;
+      
+      if (Object.keys(relatedCode.imports || {}).length > 0 || 
+          Object.keys(relatedCode.exports || {}).length > 0 ||
+          relatedCode.testFiles?.length > 0 ||
+          relatedCode.relatedFiles?.length > 0) {
+        
+        contextSections += `
+## 🔗 Related Code & Dependencies`;
+
+        // Show imports/exports
+        if (Object.keys(relatedCode.imports || {}).length > 0) {
+          contextSections += `
+**Imports by File:**`;
+          Object.entries(relatedCode.imports).forEach(([file, imports]: [string, any]) => {
+            if (imports.length > 0) {
+              contextSections += `
+- **${file}:** ${imports.join(', ')}`;
+            }
+          });
+        }
+
+        if (Object.keys(relatedCode.exports || {}).length > 0) {
+          contextSections += `
+**Exports by File:**`;
+          Object.entries(relatedCode.exports).forEach(([file, exports]: [string, any]) => {
+            if (exports.length > 0) {
+              contextSections += `
+- **${file}:** ${exports.join(', ')}`;
+            }
+          });
+        }
+
+        // Show test files
+        if (relatedCode.testFiles?.length > 0) {
+          contextSections += `
+**🧪 Related Test Files:** ${relatedCode.testFiles.join(', ')}`;
+        }
+
+        // Show related files with content preview
+        if (relatedCode.relatedFiles?.length > 0) {
+          contextSections += `
+**📁 Related Files:**`;
+          relatedCode.relatedFiles.forEach((file: any) => {
+            if (file && file.path && file.content) {
+              contextSections += `
+
+### ${file.path} (preview)
+\`\`\`${this.getFileExtension(file.path)}
+${file.content}
+\`\`\``;
+            }
+          });
+        }
+      }
+    }
+
+    // 9. ARCHITECTURAL CONTEXT - Project documentation and configuration
+    if (enhancedContext.architecturalContext) {
+      const archContext = enhancedContext.architecturalContext;
+      
+      if (Object.keys(archContext.documentation || {}).length > 0 ||
+          Object.keys(archContext.configurations || {}).length > 0 ||
+          archContext.projectStructure) {
+        
+        contextSections += `
+## 🏗️ Architectural Context & Project Documentation`;
+
+        // Documentation files
+        if (Object.keys(archContext.documentation || {}).length > 0) {
+          contextSections += `
+**📚 Project Documentation:**`;
+          Object.entries(archContext.documentation).forEach(([filename, fileData]: [string, any]) => {
+            contextSections += `
+
+### ${filename} (${(fileData.size/1000).toFixed(1)}KB)
+\`\`\`markdown
+${fileData.content}
+\`\`\``;
+          });
+        }
+
+        // Configuration files
+        if (Object.keys(archContext.configurations || {}).length > 0) {
+          contextSections += `
+**⚙️ Project Configuration:**`;
+          Object.entries(archContext.configurations).forEach(([filename, fileData]: [string, any]) => {
+            const ext = this.getFileExtension(filename);
+            contextSections += `
+
+### ${filename} (${(fileData.size/1000).toFixed(1)}KB)
+\`\`\`${ext}
+${fileData.content}
+\`\`\``;
+          });
+        }
+
+        // Project structure
+        if (archContext.projectStructure) {
+          const structure = archContext.projectStructure;
+          if (structure.rootFiles?.length > 0 || structure.rootDirectories?.length > 0) {
+            contextSections += `
+**📁 Project Structure:**`;
+            
+            if (structure.rootDirectories?.length > 0) {
+              contextSections += `
+- **Directories:** ${structure.rootDirectories.join(', ')}`;
+            }
+            
+            if (structure.rootFiles?.length > 0) {
+              contextSections += `
+- **Root Files:** ${structure.rootFiles.join(', ')}`;
+            }
+          }
+        }
+      }
+    }
+
     return contextSections;
+  }
+
+  private getFileExtension(filename: string): string {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    const languageMap: { [key: string]: string } = {
+      'js': 'javascript',
+      'jsx': 'javascript',
+      'ts': 'typescript',
+      'tsx': 'typescript',
+      'py': 'python',
+      'java': 'java',
+      'go': 'go',
+      'rs': 'rust',
+      'cpp': 'cpp',
+      'c': 'c',
+      'cs': 'csharp',
+      'php': 'php',
+      'rb': 'ruby',
+      'swift': 'swift',
+      'kt': 'kotlin'
+    };
+    return languageMap[ext || ''] || ext || '';
   }
 
   private measureContextSize(
@@ -1263,14 +1420,23 @@ ANALYSIS REQUIREMENTS:
 6. **Severity Assessment**: Properly categorize issues by importance
 7. **Best Practices**: Reference industry standards and patterns
 
+🚀 MAXIMUM CONTEXT AVAILABLE - YOU HAVE UNPRECEDENTED ACCESS:
+- ✅ COMPLETE FILE CONTENT (up to 1MB per file, 25 files total)
+- ✅ FULL DEPENDENCY GRAPH (imports, exports, related files with 5KB previews)
+- ✅ ALL TEST FILES (automatically discovered and included)
+- ✅ PROJECT ARCHITECTURE (README, docs, configs, project structure)
+- ✅ COMPREHENSIVE CODEBASE UNDERSTANDING (not just diff snippets)
+
 CRITICAL CODE REQUIREMENTS:
-- The "original" field MUST contain actual code from the diff/PR, never generic examples
-- The "suggested" field MUST contain actual fixed/improved code that can be copy-pasted
-- Extract real code snippets from the provided diff whenever possible
-- Show actual before/after code transformations from the user's codebase
-- Include sufficient context (3-5 lines) around the problematic code
-- Avoid generic comments like "// Issue detected" or "// Fix required"
-- Focus on actionable, copy-pasteable code improvements
+- You have MAXIMUM CONTEXT - use it to provide the most intelligent suggestions possible
+- The "original" field MUST contain actual code from the complete files with full context
+- The "suggested" field MUST contain production-ready code that fits the project's patterns
+- Analyze the entire codebase context: architecture, dependencies, tests, documentation
+- Consider project-specific patterns from configs (ESLint, TypeScript, framework configs)
+- Reference documentation and architectural decisions in your reasoning
+- Show comprehensive before/after code with 10-15 lines of context
+- Ensure suggestions align with the project's coding standards and architectural patterns
+- Provide enterprise-grade suggestions that consider the full system impact
 
 PR CONTEXT:
 Title: ${prTitle}
