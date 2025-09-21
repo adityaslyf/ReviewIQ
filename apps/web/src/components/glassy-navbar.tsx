@@ -28,7 +28,7 @@ function Navbar({ className }: { className?: string }) {
           <div className="flex justify-between items-center px-6 py-3">
             <button 
               onClick={() => navigate({ to: "/landing" })}
-              className="flex items-center space-x-3 group"
+              className="flex items-center space-x-3 group cursor-pointer"
             >
               <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow duration-200">
                 <Github className="h-4 w-4 text-white" />
@@ -38,10 +38,6 @@ function Navbar({ className }: { className?: string }) {
             
             {/* Desktop Menu */}
             <div className="hidden sm:flex items-center gap-6">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200/50">
-                <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                <span className="text-sm font-medium text-emerald-700">AI-Powered</span>
-              </div>
               <button
                 onClick={login}
                 className="group relative inline-flex items-center gap-2 px-6 py-2.5 text-sm font-semibold rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
@@ -64,10 +60,6 @@ function Navbar({ className }: { className?: string }) {
           {isMobileMenuOpen && (
             <div ref={mobileMenuRef} className="sm:hidden border-t border-gray-200/50 overflow-hidden">
               <div className="p-4 space-y-3">
-                <div className="mobile-menu-item flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200/50">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                  <span className="text-sm font-medium text-emerald-700">AI-Powered</span>
-                </div>
                 <button
                   onClick={() => {
                     login();
@@ -95,7 +87,7 @@ function Navbar({ className }: { className?: string }) {
           {/* Logo */}
           <button 
             onClick={() => navigate({ to: "/landing" })}
-            className="flex items-center space-x-3 group"
+            className="flex items-center space-x-3 group cursor-pointer"
           >
             <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow duration-200">
               <Github className="h-4 w-4 text-white" />
@@ -170,7 +162,7 @@ function Navbar({ className }: { className?: string }) {
                     navigate({ to: "/dashboard" });
                     setIsMobileMenuOpen(false);
                   }}
-                  className="mobile-menu-item inline-flex items-center justify-center gap-2 p-3 text-sm font-medium rounded-lg bg-orange-50 hover:bg-orange-100  transition-colors duration-200"
+                  className="mobile-menu-item inline-flex items-center justify-center gap-2 p-3 text-sm font-medium rounded-lg transition-colors duration-200"
                 >
                   <LayoutDashboard className="h-4 w-4" />
                   Dashboard
@@ -180,7 +172,7 @@ function Navbar({ className }: { className?: string }) {
                     navigate({ to: "/pull-requests" });
                     setIsMobileMenuOpen(false);
                   }}
-                  className="mobile-menu-item inline-flex items-center justify-center gap-2 p-3 text-sm font-medium rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 transition-colors duration-200"
+                  className="mobile-menu-item inline-flex items-center justify-center gap-2 p-3 text-sm font-medium rounded-lg transition-colors duration-200"
                 >
                   <GitPullRequest className="h-4 w-4" />
                   PRs
@@ -190,7 +182,7 @@ function Navbar({ className }: { className?: string }) {
                     navigate({ to: "/analysis" });
                     setIsMobileMenuOpen(false);
                   }}
-                  className="mobile-menu-item inline-flex items-center justify-center gap-2 p-3 text-sm font-medium rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 transition-colors duration-200"
+                  className="mobile-menu-item inline-flex items-center justify-center gap-2 p-3 text-sm font-medium rounded-lg transition-colors duration-200"
                 >
                   <Brain className="h-4 w-4" />
                   Analysis
@@ -200,7 +192,7 @@ function Navbar({ className }: { className?: string }) {
                     navigate({ to: "/stored" });
                     setIsMobileMenuOpen(false);
                   }}
-                  className="mobile-menu-item inline-flex items-center justify-center gap-2 p-3 text-sm font-medium rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors duration-200"
+                  className="mobile-menu-item inline-flex items-center justify-center gap-2 p-3 text-sm font-medium rounded-lg transition-colors duration-200"
                 >
                   <Database className="h-4 w-4" />
                   Data

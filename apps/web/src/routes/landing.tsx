@@ -188,7 +188,10 @@ function LandingPage() {
       </section>
 
       {/* Footer */}
+      <div className="px-4">
       <Footer />
+      </div>
+
     </div>
   );
 }
@@ -275,81 +278,80 @@ function KeyBenefitsCard() {
 
 function Footer() {
   return (
-    <footer className="bg-white border-t border-gray-200">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          {/* Company Info */}
-          <div className="md:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
-                <Github className="h-5 w-5 text-white" />
-              </div>
-              <span className="text-xl font-bold text-gray-900">ReviewIQ</span>
-            </div>
-            <p className="text-gray-600 mb-6">
-              AI-powered code reviews that help developers ship better code faster.
-            </p>
-          </div>
+    <footer className="bg-gray-50 border-t border-gray-500 rounded-t-3xl">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        {/* Large Logo */}
+        <div className="mb-12">
+          <h1 className="text-6xl md:text-8xl lg:text-9xl font-bold">
+            <span className="text-gray-800">review</span>
+            <span className="bg-gradient-to-r from-orange-500 to-orange-600 bg-clip-text text-transparent">iq</span>
+          </h1>
+        </div>
 
+        {/* Footer Links Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
           {/* Product Links */}
           <div>
             <h3 className="text-lg font-bold text-gray-900 mb-4">Product</h3>
-            <ul className="space-y-3 text-gray-600">
-              <li><a href="#" className="hover:text-gray-900 transition-colors">AI Code Analysis</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">GitHub Integration</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Security Scanning</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Performance Insights</a></li>
+            <ul className="space-y-3">
+              <li><a href="#" className="text-gray-700 hover:text-orange-600 transition-colors font-medium">AI Code Analysis</a></li>
+              <li><a href="#" className="text-gray-700 hover:text-orange-600 transition-colors font-medium">GitHub Integration</a></li>
+              <li><a href="#" className="text-gray-700 hover:text-orange-600 transition-colors font-medium">Security Scanning</a></li>
+              <li><a href="#" className="text-gray-700 hover:text-orange-600 transition-colors font-medium">Performance Insights</a></li>
             </ul>
           </div>
 
           {/* Company Links */}
           <div>
             <h3 className="text-lg font-bold text-gray-900 mb-4">Company</h3>
-            <ul className="space-y-3 text-gray-600">
-              <li><a href="#" className="hover:text-gray-900 transition-colors">About</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Blog</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Careers</a></li>
-              <li><a href="#" className="hover:text-gray-900 transition-colors">Contact</a></li>
+            <ul className="space-y-3">
+              <li><a href="#" className="text-gray-700 hover:text-orange-600 transition-colors font-medium">About</a></li>
+              <li><a href="#" className="text-gray-700 hover:text-orange-600 transition-colors font-medium">Blog</a></li>
+              <li><a href="#" className="text-gray-700 hover:text-orange-600 transition-colors font-medium">Careers</a></li>
+              <li><a href="#" className="text-gray-700 hover:text-orange-600 transition-colors font-medium">Contact</a></li>
             </ul>
           </div>
 
-          {/* Contact */}
+          {/* Connect */}
           <div>
             <h3 className="text-lg font-bold text-gray-900 mb-4">Connect</h3>
-            <div className="space-y-3 text-gray-600">
-              <a href="mailto:aditya.varshneymail@gmail.com" className="flex items-center gap-2 hover:text-gray-900 transition-colors">
-                <Mail className="h-4 w-4" />
-                aditya.varshneymail@gmail.com
-              </a>
-              <div className="flex gap-4 mt-6">
-                <a href="https://www.linkedin.com/in/aditya-varshney-089b33244/" className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center hover:bg-gray-200 transition-colors">
-                  <Linkedin className="h-5 w-5 text-gray-600" />
-                </a>
-                <a href="https://github.com/adityaslyf" className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center hover:bg-gray-200 transition-colors">
-                  <Github className="h-5 w-5 text-gray-600" />
-                </a>
-                <a href="https://x.com/adityaslyf" className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center hover:bg-gray-200 transition-colors">
-                  <Twitter className="h-5 w-5 text-gray-600" />
-                </a>
-              </div>
-            </div>
+            <ul className="space-y-3">
+              <li><a href="https://x.com/adityaslyf" className="text-gray-700 hover:text-orange-600 transition-colors font-medium">X/Twitter</a></li>
+              <li><a href="https://www.linkedin.com/in/aditya-varshney-089b33244/" className="text-gray-700 hover:text-orange-600 transition-colors font-medium">LinkedIn</a></li>
+              <li><a href="https://github.com/adityaslyf" className="text-gray-700 hover:text-orange-600 transition-colors font-medium">GitHub</a></li>
+            </ul>
+          </div>
+
+          {/* Legal */}
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Legal</h3>
+            <ul className="space-y-3">
+              <li><a href="#" className="text-gray-700 hover:text-orange-600 transition-colors font-medium">Privacy Policy</a></li>
+              <li><a href="#" className="text-gray-700 hover:text-orange-600 transition-colors font-medium">Terms of Service</a></li>
+              <li><a href="mailto:aditya.varshneymail@gmail.com" className="text-gray-700 hover:text-orange-600 transition-colors font-medium">Contact us</a></li>
+            </ul>
           </div>
         </div>
 
         {/* Footer Bottom */}
-        {/* <div className="border-t border-gray-200 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-gray-500 text-sm">
-            © 2025 ReviewIQ. All rights reserved.
-          </p>
-          <div className="flex gap-6 mt-4 md:mt-0">
-            <a href="#" className="text-gray-500 hover:text-gray-900 text-sm transition-colors">
-              Privacy Policy
-            </a>
-            <a href="#" className="text-gray-500 hover:text-gray-900 text-sm transition-colors">
-              Terms of Service
-            </a>
+        <div className="border-t border-gray-300 pt-8">
+          <div className="flex flex-col md:flex-row justify-between items-start">
+            <div className="text-gray-600 text-sm mb-4 md:mb-0">
+              <p className="font-bold">2025 REVIEWIQ. ALL RIGHTS RESERVED</p>
+              <p className="text-xs mt-1">AI-powered code reviews that help developers ship better code faster.</p>
+            </div>
+            
+            {/* Contact Info */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 text-sm">
+                <span className="w-4 h-3 bg-orange-500 rounded-sm"></span>
+                <span className="w-4 h-3 bg-white border border-gray-300 rounded-sm"></span>
+                <span className="w-4 h-3 bg-green-500 rounded-sm"></span>
+              </div>
+              <span className="text-sm text-gray-600">aditya.varshneymail@gmail.com</span>
+            </div>
           </div>
-        </div> */}
+        </div>
       </div>
     </footer>
   );

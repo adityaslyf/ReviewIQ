@@ -87,7 +87,7 @@ export function Sidebar({
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="p-2 hover:bg-gray-200"
           >
-            <Menu className="h-4 w-4 text-gray-600" />
+            <Settings className="h-4 w-4 text-gray-600" />
           </Button>
         </div>
       </div>
