@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { getEnhancedStaticAnalysisService, EnhancedStaticAnalysisResult, StaticAnalysisIssue, CodeHunk } from './enhanced-static-analysis';
+import { getEnhancedStaticAnalysisService, type EnhancedStaticAnalysisResult, type StaticAnalysisIssue, type CodeHunk } from './enhanced-static-analysis';
 
 export interface StructuredCodeSuggestion {
   file: string;
