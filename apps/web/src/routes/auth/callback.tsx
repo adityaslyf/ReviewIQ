@@ -41,7 +41,8 @@ function AuthCallback() {
 
 
         // Exchange code for access token
-        const response = await fetch('http://localhost:3000/api/auth/github', {
+        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+        const response = await fetch(`${apiBaseUrl}/api/auth/github`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
