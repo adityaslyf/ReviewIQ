@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "../../contexts/auth-context";
+import { apiCall } from "@/lib/api";
 
 export const Route = createFileRoute("/auth/callback")({
   component: AuthCallback,
@@ -41,12 +42,8 @@ function AuthCallback() {
 
 
         // Exchange code for access token
-        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-        const response = await fetch(`${apiBaseUrl}/api/auth/github`, {
+        const response = await apiCall('/api/auth/github', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
           body: JSON.stringify({ code }),
         });
 

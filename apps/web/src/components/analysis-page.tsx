@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { BrutalistCard } from "./brutalist-card";
+import { apiCall } from "@/lib/api";
 import { 
   Brain, 
   GitPullRequest,
@@ -56,7 +57,7 @@ interface PullRequest {
 }
 
 async function fetchPullRequests(): Promise<PullRequest[]> {
-  const response = await fetch("http://localhost:3000/api/pull-requests-with-ai");
+  const response = await apiCall("/api/pull-requests-with-ai");
   if (!response.ok) {
     throw new Error("Failed to fetch pull requests");
   }

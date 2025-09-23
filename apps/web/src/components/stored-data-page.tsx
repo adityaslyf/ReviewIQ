@@ -3,6 +3,7 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { BrutalistCard } from "./brutalist-card";
 import { Database, GitPullRequest, Brain, Calendar, User, ExternalLink } from "lucide-react";
+import { apiCall } from "@/lib/api";
 import { Link } from "@tanstack/react-router";
 import { useAuth } from "../contexts/auth-context";
 
@@ -22,7 +23,7 @@ interface PullRequest {
 }
 
 async function fetchPullRequests(): Promise<PullRequest[]> {
-  const response = await fetch("http://localhost:3000/api/pull-requests-with-ai");
+  const response = await apiCall("/api/pull-requests-with-ai");
   if (!response.ok) {
     throw new Error("Failed to fetch pull requests");
   }
