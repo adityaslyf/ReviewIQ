@@ -14,15 +14,31 @@ app.use(express.json());
 
 app.use(
 	cors({
-		origin: [
-			process.env.CORS_ORIGIN || "http://localhost:3001",
-			"http://localhost:3000",
-			"http://127.0.0.1:3001",
-			"http://127.0.0.1:3000",
-			"https://reviewiq.xyz"
-		],
+		origin: function (origin, callback) {
+			// Allow requests with no origin (like mobile apps or curl requests)
+			if (!origin) return callback(null, true);
+			
+			const allowedOrigins = [
+				process.env.CORS_ORIGIN || "http://localhost:3001",
+				"http://localhost:3000",
+				"http://localhost:3001",
+				"http://127.0.0.1:3001",
+				"http://127.0.0.1:3000",
+				"https://reviewiq.xyz",
+				"https://www.reviewiq.xyz"
+			];
+			
+			if (allowedOrigins.indexOf(origin) !== -1) {
+				callback(null, true);
+			} else {
+				console.log('CORS blocked origin:', origin);
+				callback(new Error('Not allowed by CORS'));
+			}
+		},
 		methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
 		credentials: true,
+		allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+		optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
 	}),
 );
 
@@ -101,8 +117,17 @@ async function verifyUserRepoAccess(userToken: string, owner: string, repo: stri
   }
 }
 
+// Health check endpoints
 app.get("/", (_req, res) => {
 	res.status(200).send("OK");
+});
+
+app.get("/api", (_req, res) => {
+	res.status(200).json({ status: "OK", message: "ReviewIQ API is running", version: "1.0.0" });
+});
+
+app.get("/api/health", (_req, res) => {
+	res.status(200).json({ status: "healthy", timestamp: new Date().toISOString() });
 });
 
 
