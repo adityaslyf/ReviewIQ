@@ -47,7 +47,7 @@ app.use(express.json());
 // Request logging middleware
 app.use((req, res, next) => {
   // Only log non-status requests to reduce noise
-  if (!req.path.includes('/api/vector-status')) {
+  if (!req.path.includes('/vector-status')) {
     console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - Origin: ${req.get('Origin') || 'none'}`);
   }
   next();
@@ -119,20 +119,16 @@ async function verifyUserRepoAccess(userToken: string, owner: string, repo: stri
 
 // Health check endpoints
 app.get("/", (_req, res) => {
-	res.status(200).send("OK");
-});
-
-app.get("/api", (_req, res) => {
 	res.status(200).json({ status: "OK", message: "ReviewIQ API is running", version: "1.0.0" });
 });
 
-app.get("/api/health", (_req, res) => {
+app.get("/health", (_req, res) => {
 	res.status(200).json({ status: "healthy", timestamp: new Date().toISOString() });
 });
 
 
 // API endpoint to fetch PRs from database
-app.get("/api/pull-requests", async (_req, res) => {
+app.get("/pull-requests", async (_req, res) => {
   try {
     const { db, schema } = await import("./db");
     const prs = await db.select().from(schema.pullRequests).orderBy(schema.pullRequests.createdAt);
@@ -143,7 +139,7 @@ app.get("/api/pull-requests", async (_req, res) => {
   }
 });
 
-app.get("/api/pull-requests/:id/ai-suggestions", async (req, res) => {
+app.get("/pull-requests/:id/ai-suggestions", async (req, res) => {
   try {
     const prId = parseInt(req.params.id);
     if (isNaN(prId)) {
@@ -169,7 +165,7 @@ app.get("/api/pull-requests/:id/ai-suggestions", async (req, res) => {
 });
 
 // Enhanced reanalysis endpoint with new capabilities
-app.post("/api/reanalyze-pr/:prId", async (req, res) => {
+app.post("/reanalyze-pr/:prId", async (req, res) => {
   try {
     const { db, schema } = await import("./db");
     const { eq } = await import("drizzle-orm");
@@ -350,7 +346,7 @@ app.post("/api/reanalyze-pr/:prId", async (req, res) => {
   }
 });
 
-app.get("/api/pull-requests-with-ai", async (_req, res) => {
+app.get("/pull-requests-with-ai", async (_req, res) => {
   try {
     const { db, schema } = await import("./db");
     
@@ -401,7 +397,7 @@ app.get("/api/pull-requests-with-ai", async (_req, res) => {
 });
 
 // API endpoint to fetch PRs from GitHub
-app.get("/api/github/pull-requests", async (req, res) => {
+app.get("/github/pull-requests", async (req, res) => {
   try {
     const { owner, repo } = req.query;
     const userToken = req.headers.authorization?.replace('Bearer ', '');
@@ -483,7 +479,7 @@ app.get("/api/github/pull-requests", async (req, res) => {
 
 
 // Enhanced analyze PR endpoint
-app.post("/api/analyze-pr", async (req, res) => {
+app.post("/analyze-pr", async (req, res) => {
   try {
     console.log('🔍 PR Analysis requested for:', req.body.owner + '/' + req.body.repo + '#' + req.body.prNumber);
     const { 
@@ -755,7 +751,7 @@ app.post("/api/analyze-pr", async (req, res) => {
 });
 
 // GitHub OAuth callback endpoint
-app.post("/api/auth/github", async (req, res) => {
+app.post("/auth/github", async (req, res) => {
   try {
     const { code } = req.body;
     
@@ -1002,7 +998,7 @@ const port = process.env.PORT || 3000;
 
 
 // Test endpoint for sandbox validation
-app.post("/api/test-sandbox", async (req, res) => {
+app.post("/test-sandbox", async (req, res) => {
   try {
     const { repoUrl, branchName, testPatch } = req.body;
     
@@ -1049,7 +1045,7 @@ app.post("/api/test-sandbox", async (req, res) => {
 });
 
 // Vector service status endpoint
-app.get("/api/vector-status", (req, res) => {
+app.get("/vector-status", (req, res) => {
   try {
     const githubService = getGitHubService();
     const status = githubService.getVectorServiceStatus();
@@ -1068,7 +1064,7 @@ app.get("/api/vector-status", (req, res) => {
 });
 
 // Reset vector service for testing
-app.post("/api/vector-reset", (req, res) => {
+app.post("/vector-reset", (req, res) => {
   try {
     const githubService = getGitHubService();
     githubService.resetVectorService();

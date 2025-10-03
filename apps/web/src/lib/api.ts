@@ -16,7 +16,7 @@ export const getApiBaseUrl = (): string => {
     if (currentHost === 'localhost' || currentHost === '127.0.0.1' || currentHost.includes('localhost')) {
       baseUrl = 'http://localhost:3000';
     } else if (currentHost === 'reviewiq.xyz' || currentHost.includes('reviewiq.xyz')) {
-      // Backend deployed on same domain with /api path
+      // Backend deployed at /api/ with API routes at /api/api/*
       baseUrl = 'https://reviewiq.xyz/api';
     } else {
       // Default fallback for development
