@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StoredRouteImport } from './routes/stored'
 import { Route as PullRequestsRouteImport } from './routes/pull-requests'
-import { Route as LandingRouteImport } from './routes/landing'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as IndexRouteImport } from './routes/index'
@@ -25,11 +24,6 @@ const StoredRoute = StoredRouteImport.update({
 const PullRequestsRoute = PullRequestsRouteImport.update({
   id: '/pull-requests',
   path: '/pull-requests',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LandingRoute = LandingRouteImport.update({
-  id: '/landing',
-  path: '/landing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -57,7 +51,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/analysis': typeof AnalysisRoute
   '/dashboard': typeof DashboardRoute
-  '/landing': typeof LandingRoute
   '/pull-requests': typeof PullRequestsRoute
   '/stored': typeof StoredRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -66,7 +59,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/analysis': typeof AnalysisRoute
   '/dashboard': typeof DashboardRoute
-  '/landing': typeof LandingRoute
   '/pull-requests': typeof PullRequestsRoute
   '/stored': typeof StoredRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -76,7 +68,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/analysis': typeof AnalysisRoute
   '/dashboard': typeof DashboardRoute
-  '/landing': typeof LandingRoute
   '/pull-requests': typeof PullRequestsRoute
   '/stored': typeof StoredRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -87,7 +78,6 @@ export interface FileRouteTypes {
     | '/'
     | '/analysis'
     | '/dashboard'
-    | '/landing'
     | '/pull-requests'
     | '/stored'
     | '/auth/callback'
@@ -96,7 +86,6 @@ export interface FileRouteTypes {
     | '/'
     | '/analysis'
     | '/dashboard'
-    | '/landing'
     | '/pull-requests'
     | '/stored'
     | '/auth/callback'
@@ -105,7 +94,6 @@ export interface FileRouteTypes {
     | '/'
     | '/analysis'
     | '/dashboard'
-    | '/landing'
     | '/pull-requests'
     | '/stored'
     | '/auth/callback'
@@ -115,7 +103,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AnalysisRoute: typeof AnalysisRoute
   DashboardRoute: typeof DashboardRoute
-  LandingRoute: typeof LandingRoute
   PullRequestsRoute: typeof PullRequestsRoute
   StoredRoute: typeof StoredRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
@@ -135,13 +122,6 @@ declare module '@tanstack/react-router' {
       path: '/pull-requests'
       fullPath: '/pull-requests'
       preLoaderRoute: typeof PullRequestsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/landing': {
-      id: '/landing'
-      path: '/landing'
-      fullPath: '/landing'
-      preLoaderRoute: typeof LandingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -179,7 +159,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AnalysisRoute: AnalysisRoute,
   DashboardRoute: DashboardRoute,
-  LandingRoute: LandingRoute,
   PullRequestsRoute: PullRequestsRoute,
   StoredRoute: StoredRoute,
   AuthCallbackRoute: AuthCallbackRoute,

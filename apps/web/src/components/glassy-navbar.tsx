@@ -27,7 +27,7 @@ function Navbar({ className }: { className?: string }) {
         >
           <div className="flex justify-between items-center px-6 py-3">
             <button 
-              onClick={() => navigate({ to: "/landing" })}
+              onClick={() => navigate({ to: "/" })}
               className="flex items-center space-x-3 group cursor-pointer"
             >
               <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow duration-200">
@@ -86,7 +86,7 @@ function Navbar({ className }: { className?: string }) {
         <div className="flex justify-between items-center px-6 py-3">
           {/* Logo */}
           <button 
-            onClick={() => navigate({ to: "/landing" })}
+            onClick={() => navigate({ to: "/" })}
             className="flex items-center space-x-3 group cursor-pointer"
           >
             <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow duration-200">
@@ -133,7 +133,7 @@ function Navbar({ className }: { className?: string }) {
               onClick={() => {
                 logout();
                 setTimeout(() => {
-                  navigate({ to: "/landing" });
+                  navigate({ to: "/" });
                 }, 100);
               }}
               className="px-4 py-2 text-sm font-medium rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900 transition-all duration-200"
@@ -205,7 +205,7 @@ function Navbar({ className }: { className?: string }) {
                   logout();
                   setIsMobileMenuOpen(false);
                   setTimeout(() => {
-                    navigate({ to: "/landing" });
+                    navigate({ to: "/" });
                   }, 100);
                 }}
                 className="mobile-menu-item w-full p-3 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 transition-colors duration-200 cursor-pointer"
