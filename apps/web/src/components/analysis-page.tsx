@@ -57,7 +57,7 @@ interface PullRequest {
 }
 
 async function fetchPullRequests(): Promise<PullRequest[]> {
-  const response = await apiCall("/api/pull-requests-with-ai");
+  const response = await apiCall("/pull-requests-with-ai");
   if (!response.ok) {
     throw new Error("Failed to fetch pull requests");
   }

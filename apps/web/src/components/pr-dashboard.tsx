@@ -59,7 +59,7 @@ interface Repository {
 }
 
 async function fetchPullRequests(): Promise<PullRequest[]> {
-  const response = await apiCall("/api/pull-requests-with-ai");
+  const response = await apiCall("/pull-requests-with-ai");
   if (!response.ok) {
     throw new Error("Failed to fetch pull requests");
   }
@@ -67,7 +67,7 @@ async function fetchPullRequests(): Promise<PullRequest[]> {
 }
 
 async function fetchGitHubPRs(owner: string, repo: string, userToken: string): Promise<PullRequest[]> {
-  const response = await apiCall(`/api/github/pull-requests?owner=${owner}&repo=${repo}`, {
+  const response = await apiCall(`/github/pull-requests?owner=${owner}&repo=${repo}`, {
     headers: {
       'Authorization': `Bearer ${userToken}`,
     },
@@ -203,7 +203,7 @@ export function PRDashboard() {
       }
 
       const [owner, repoName] = selectedRepo.full_name.split('/');
-      const response = await apiCall("/api/analyze-pr", {
+      const response = await apiCall("/analyze-pr", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

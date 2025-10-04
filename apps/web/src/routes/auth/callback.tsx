@@ -42,7 +42,7 @@ function AuthCallback() {
 
 
         // Exchange code for access token
-        const response = await apiCall('/api/auth/github', {
+        const response = await apiCall('/auth/github', {
           method: 'POST',
           body: JSON.stringify({ code }),
         });
