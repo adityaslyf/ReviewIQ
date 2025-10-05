@@ -103,17 +103,9 @@ export function PRBrowsePage() {
         const status = await response.json();
         const newStatus = status.vectorService;
         
-        // Log status changes
+        // Track status changes
         if (!previousVectorStatus.current && !hasLoggedInitialStatus.current) {
-          console.log('🔍 Initial vector service status:', newStatus);
           hasLoggedInitialStatus.current = true;
-        } else if (previousVectorStatus.current && previousVectorStatus.current.isInitializing !== newStatus.isInitializing) {
-          if (newStatus.isInitializing) {
-            console.log('🚀 Vector service initialization started!');
-            console.log('📈 Watch for progress updates every 10 seconds...');
-          } else if (newStatus.isInitialized) {
-            console.log('✅ Vector service initialization completed! Future analyses will use intelligent semantic context.');
-          }
         }
         
         // Log progress updates for initializing service
@@ -122,29 +114,13 @@ export function PRBrowsePage() {
           const prevProgress = previousVectorStatus.current?.progress?.percentage || 0;
           const currentProgress = p.percentage;
           
-          // Log every 5% progress for better visibility
-          if (Math.floor(currentProgress / 5) > Math.floor(prevProgress / 5)) {
-            console.log(`📊 Vector Progress: ${p.stage} - ${currentProgress.toFixed(1)}% (${p.current}/${p.total})`);
-            
-            if (p.estimatedCompletion) {
-              const remaining = (new Date(p.estimatedCompletion).getTime() - Date.now()) / 1000;
-              if (remaining > 0) {
-                console.log(`⏱️ Estimated completion: ${Math.ceil(remaining)}s remaining`);
-              }
-            }
-            
-            // Show time elapsed
-            if (p.startTime) {
-              const elapsed = (Date.now() - new Date(p.startTime).getTime()) / 1000;
-              console.log(`⏰ Time elapsed: ${Math.ceil(elapsed)}s`);
-            }
-          }
+          // Track progress updates (removed verbose logging for production)
         }
         
         // Update previous status for next comparison
         previousVectorStatus.current = newStatus;
       } catch (error) {
-        console.warn('Failed to check vector status:', error);
+        // Failed to check vector status
       }
     };
 
@@ -192,26 +168,8 @@ export function PRBrowsePage() {
     
     try {
       // Check vector service status before analysis
-      console.log('🔍 Checking vector service status...');
       const vectorStatusResponse = await apiCall("/vector-status");
       const initialVectorStatus = await vectorStatusResponse.json();
-      console.log('📊 Vector Service Status:', initialVectorStatus.vectorService);
-      
-      if (initialVectorStatus.vectorService.isInitializing) {
-        const progress = initialVectorStatus.vectorService.progress;
-        if (progress) {
-          console.log(`🔄 Vector initialization in progress: ${progress.stage} - ${progress.percentage.toFixed(1)}% (${progress.elapsedTime.toFixed(1)}s elapsed)`);
-          if (progress.estimatedCompletion) {
-            const remaining = (new Date(progress.estimatedCompletion).getTime() - Date.now()) / 1000;
-            console.log(`⏱️ Estimated completion: ${remaining.toFixed(0)}s remaining`);
-          }
-        }
-        console.log('💡 Using traditional context gathering while vector service initializes...');
-      } else if (initialVectorStatus.vectorService.isInitialized) {
-        console.log('🎯 Vector service ready! Using intelligent semantic context retrieval...');
-      } else {
-        console.log('⚠️ Vector service not initialized. Using traditional context gathering...');
-      }
 
       const token = localStorage.getItem('github_token');
       if (!token) {
@@ -220,7 +178,7 @@ export function PRBrowsePage() {
       }
 
       const [owner, repoName] = selectedRepo.full_name.split('/');
-      console.log(`🚀 Starting PR analysis: ${owner}/${repoName}#${pr.number}`);
+      // Starting PR analysis
       
       // Start the analysis request
       const response = await apiCall("/analyze-pr", {
@@ -245,8 +203,7 @@ export function PRBrowsePage() {
       }
 
       const analysisResult = await response.json();
-      console.log('✅ PR analysis completed successfully!');
-      console.log('📊 Analysis result:', analysisResult);
+      // PR analysis completed successfully
       
       // Check vector status after analysis to see if it started initializing
       setTimeout(async () => {
@@ -254,14 +211,9 @@ export function PRBrowsePage() {
           const finalVectorStatusResponse = await apiCall("/vector-status");
           const finalStatus = await finalVectorStatusResponse.json();
           
-          if (finalStatus.vectorService.isInitializing && !initialVectorStatus.vectorService.isInitializing) {
-            console.log('🚀 Vector service initialization started during analysis! Future analyses will be even smarter.');
-            console.log('📈 Watch for progress updates every 10 seconds...');
-          } else if (finalStatus.vectorService.isInitialized && !initialVectorStatus.vectorService.isInitialized) {
-            console.log('✅ Vector service completed initialization! All future analyses will use intelligent semantic context.');
-          }
+          // Track vector service initialization status
         } catch (error) {
-          console.warn('Failed to check final vector status:', error);
+          // Failed to check final vector status
         }
       }, 1000); // Check after 1 second to allow server to update
       

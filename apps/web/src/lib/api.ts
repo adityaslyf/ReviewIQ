@@ -8,26 +8,25 @@ export const getApiBaseUrl = (): string => {
     baseUrl = import.meta.env.VITE_API_BASE_URL;
   }
   
-  // Priority 3: Auto-detect from current domain
+  // Priority 3: Auto-detect from current domain (secure fallback)
   if (!baseUrl) {
     const currentHost = window.location.hostname;
     
-    // Force localhost mode for development/demo
+    // Development mode
     if (currentHost === 'localhost' || currentHost === '127.0.0.1' || currentHost.includes('localhost')) {
       baseUrl = 'http://localhost:3000';
-    } else if (currentHost === 'reviewiq.xyz' || currentHost.includes('reviewiq.xyz')) {
-      // Backend deployed at /api/ with API routes directly accessible
-      baseUrl = 'https://reviewiq.xyz/api';
     } else {
-      // Default fallback for development
-      baseUrl = 'http://localhost:3000';
+      // Production mode - use environment variable only
+      baseUrl = import.meta.env.VITE_SERVER_URL || '';
     }
   }
   
-  console.log('🔧 API Base URL:', baseUrl);
-  console.log('🌐 Current hostname:', window.location.hostname);
-  console.log('🔧 VITE_SERVER_URL env var:', import.meta.env.VITE_SERVER_URL);
-  console.log('🔧 VITE_API_BASE_URL env var:', import.meta.env.VITE_API_BASE_URL);
+  // Only log in development
+  if (import.meta.env.DEV) {
+    console.log('🔧 API Base URL:', baseUrl);
+    console.log('🌐 Current hostname:', window.location.hostname);
+  }
+  
   return baseUrl;
 };
 
@@ -36,7 +35,10 @@ export const apiCall = async (endpoint: string, options?: RequestInit) => {
   const baseUrl = getApiBaseUrl();
   const url = `${baseUrl}${endpoint}`;
   
-  console.log('📡 Making API call to:', url);
+  // Only log in development
+  if (import.meta.env.DEV) {
+    console.log('📡 Making API call to:', url);
+  }
   
   return fetch(url, {
     headers: {
