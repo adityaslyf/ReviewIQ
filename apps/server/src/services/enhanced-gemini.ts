@@ -61,7 +61,7 @@ export class EnhancedGeminiService {
     
     // Flash model for quick analysis
     this.flashModel = this.genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
+      model: "gemini-1.5-flash-001",
       generationConfig: {
         temperature: 0.1,
         topK: 20,
@@ -89,7 +89,7 @@ export class EnhancedGeminiService {
     
     // Pro model for deep analysis
     this.proModel = this.genAI.getGenerativeModel({ 
-      model: "gemini-1.5-pro",
+      model: "gemini-1.5-pro-001",
       generationConfig: {
         temperature: 0.1,
         topK: 40,
