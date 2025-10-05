@@ -61,42 +61,31 @@ export class EnhancedGeminiService {
     
     // Flash model for quick analysis
     this.flashModel = this.genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash-001",
+      model: "gemini-pro",
       generationConfig: {
         temperature: 0.1,
         topK: 20,
         topP: 0.8,
         maxOutputTokens: 2048,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "object",
-          properties: {
-            summary: { type: "string" },
-            quickIssues: { 
-              type: "array", 
-              items: { type: "string" }
-            },
-            complexity: { 
-              type: "string", 
-              enum: ["LOW", "MEDIUM", "HIGH"]
-            },
-            recommendDeepAnalysis: { type: "boolean" }
-          },
-          required: ["summary", "quickIssues", "complexity", "recommendDeepAnalysis"]
-        }
+        // Removed JSON schema constraints for compatibility
       }
     });
     
     // Pro model for deep analysis
     this.proModel = this.genAI.getGenerativeModel({ 
-      model: "gemini-1.5-pro-001",
+      model: "gemini-pro",
       generationConfig: {
         temperature: 0.1,
         topK: 40,
         topP: 0.95,
         maxOutputTokens: 8192,
-        responseMimeType: "application/json",
-        responseSchema: {
+        // Removed responseSchema for compatibility
+      }
+    });
+
+    // Skip the old responseSchema block
+    if (false) {
+      const oldSchema = {
           type: "object",
           properties: {
             summary: { type: "string" },
@@ -150,10 +139,10 @@ export class EnhancedGeminiService {
               enum: ["safe", "minor_changes", "major_fixes"]
             }
           },
-          required: ["summary", "potentialIssues", "refactorSuggestions", "testRecommendations", "finalVerdict"]
-        }
+          // End of old schema block
+        };
       }
-    });
+    }
   }
 
   async analyzeWithMultiModel(

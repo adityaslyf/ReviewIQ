@@ -85,7 +85,7 @@ export class GeminiService {
     this.genAI = new GoogleGenerativeAI(apiKey);
     // Use Gemini Pro for more comprehensive analysis
     this.model = this.genAI.getGenerativeModel({ 
-      model: "gemini-1.5-pro-001",
+      model: "gemini-pro",
       generationConfig: {
         temperature: 0.1, // Lower temperature for more consistent, focused analysis
         topK: 40,
