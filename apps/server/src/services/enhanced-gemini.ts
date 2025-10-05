@@ -170,16 +170,16 @@ export class EnhancedGeminiService {
     const startTime = Date.now();
     let totalCost = 0;
 
-    console.log('🚀 Starting enhanced multi-model analysis...');
+    // Starting enhanced multi-model analysis
 
     // Step 1: Run static analysis if enabled
     let staticResults: EnhancedStaticAnalysisResult | null = null;
     if (options.enableStaticAnalysis) {
-      console.log('🔧 Running enhanced static analysis...');
+      // Running enhanced static analysis
       const staticService = getEnhancedStaticAnalysisService();
       const fileContents = staticService.extractFileContents(diff);
       staticResults = await staticService.analyzeCodeEnhanced(fileContents, diff);
-      console.log(`📊 Static analysis found ${staticResults.issues.length} issues using ${staticResults.summary.toolsRun.join(', ')}`);
+      // Static analysis found ${staticResults.issues.length} issues
     }
 
     // Step 2: Quick Flash analysis (unless forced deep)
@@ -187,15 +187,15 @@ export class EnhancedGeminiService {
     let shouldRunDeepAnalysis = options.forceDeepAnalysis || false;
 
     if (!options.forceDeepAnalysis) {
-      console.log('⚡ Running Flash model quick analysis...');
+      // Running Flash model quick analysis
       flashAnalysis = await this.runFlashAnalysis(prTitle, prDescription, diff, changedFiles);
       totalCost += 0.1; // Rough cost estimate
       shouldRunDeepAnalysis = flashAnalysis.recommendDeepAnalysis || flashAnalysis.complexity !== 'LOW';
-      console.log(`Flash analysis: ${flashAnalysis.complexity} complexity, deep analysis ${shouldRunDeepAnalysis ? 'recommended' : 'not needed'}`);
+      // Flash analysis completed
     }
 
     // Step 3: Deep Pro analysis if needed
-    console.log('🧠 Running Pro model deep analysis...');
+    // Running Pro model deep analysis
     const proAnalysis = await this.runProAnalysis(
       prTitle, 
       prDescription, 
@@ -208,7 +208,7 @@ export class EnhancedGeminiService {
     totalCost += 1.0; // Rough cost estimate
 
     const processingTime = Date.now() - startTime;
-    console.log(`✅ Multi-model analysis completed in ${processingTime}ms`);
+    // Multi-model analysis completed
 
     return {
       flashAnalysis,
@@ -254,7 +254,7 @@ Be fast but accurate. Focus on obvious problems and complexity assessment.`;
       const response = await result.response;
       return JSON.parse(response.text());
     } catch (error) {
-      console.warn('Flash analysis failed:', error);
+      // Flash analysis failed - using fallback
       return {
         summary: "Quick analysis failed",
         quickIssues: ["Flash analysis error - proceeding with deep analysis"],

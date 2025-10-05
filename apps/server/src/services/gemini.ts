@@ -624,7 +624,7 @@ Respond with ONLY valid JSON:
     
     // Measure context size
     const contextMetrics = this.measureContextSize(prTitle, prDescription, diff, fileSummary, contextSections);
-    console.log(`📊 Context Metrics: ${JSON.stringify(contextMetrics, null, 2)}`);
+    // Context metrics calculated
 
     return `You are a **senior software engineer** performing a **code review** on a GitHub Pull Request. 
 Act like a highly experienced reviewer: focus on correctness, maintainability, performance, scalability, security, and best practices. 
@@ -1088,7 +1088,7 @@ ${fileData.content}
     diff: string,
     changedFiles: Array<{ filename: string; additions: number; deletions: number; changes: number }>
   ): Promise<AIAnalysisResult & { multiPassAnalysis: MultiPassAnalysisResult }> {
-    console.log("🚀 Starting enhanced single-pass analysis with multi-pass insights...");
+    // Starting enhanced single-pass analysis
 
     const fileSummary = changedFiles.map(file => 
       `- ${file.filename}: +${file.additions} -${file.deletions} (${file.changes} changes)`
@@ -1214,10 +1214,10 @@ Be thorough but practical. Provide specific code examples and actionable insight
       const cleanedResponse = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const parsedResult = JSON.parse(cleanedResponse);
       
-      console.log("✅ Enhanced analysis completed successfully!");
+      // Enhanced analysis completed successfully
       return parsedResult;
     } catch (error) {
-      console.warn('Enhanced analysis JSON parsing failed, using enhanced fallback');
+      // Enhanced analysis JSON parsing failed, using enhanced fallback
       
       // Enhanced fallback that still provides rich analysis
       const fallbackResult = this.parseAIResponse(text);
@@ -1306,25 +1306,21 @@ Be thorough but practical. Provide specific code examples and actionable insight
     diff: string,
     changedFiles: Array<{ filename: string; additions: number; deletions: number; changes: number }>
   ): Promise<MultiPassAnalysisResult> {
-    console.log("🔍 Starting multi-pass analysis...");
+    // Starting multi-pass analysis
 
     // Pass 1: High-level overview and impact assessment
-    console.log("📋 Pass 1: High-level overview...");
     const pass1Result = await this.runPass1Analysis(prTitle, prDescription, changedFiles);
 
     // Pass 2: File-by-file detailed analysis
-    console.log("📁 Pass 2: File-by-file analysis...");
     const pass2Result = await this.runPass2Analysis(diff, changedFiles);
 
     // Pass 3: Cross-file consistency and dependency analysis
-    console.log("🔗 Pass 3: Cross-file consistency...");
     const pass3Result = await this.runPass3Analysis(pass2Result, diff);
 
     // Pass 4: Final prioritization and categorization
-    console.log("🎯 Pass 4: Final prioritization...");
     const pass4Result = await this.runPass4Analysis(pass1Result, pass2Result, pass3Result);
 
-    console.log("✅ Multi-pass analysis complete!");
+    // Multi-pass analysis complete
 
     return {
       // Pass 1 results
@@ -1574,7 +1570,7 @@ Respond with ONLY valid JSON:
       const cleanedResponse = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       return JSON.parse(cleanedResponse);
     } catch {
-      console.warn('Pass 1 JSON parsing failed, using fallback');
+      // Pass 1 JSON parsing failed, using fallback
       return {
         overallSummary: `This PR modifies ${fileCount} files with ${totalChanges} total changes`,
         impactAssessment: 'Impact analysis failed - manual review recommended',
@@ -1655,7 +1651,7 @@ Respond with ONLY valid JSON array:
       const cleanedResponse = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       return JSON.parse(cleanedResponse);
     } catch {
-      console.warn('Pass 2 JSON parsing failed, using fallback');
+      // Pass 2 JSON parsing failed, using fallback
       return files.map(file => ({
         filename: file.filename,
         summary: `File analysis failed for ${file.filename}`,
@@ -1710,7 +1706,7 @@ Respond with ONLY valid JSON:
       const cleanedResponse = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       return JSON.parse(cleanedResponse);
     } catch {
-      console.warn('Pass 3 JSON parsing failed, using fallback');
+      // Pass 3 JSON parsing failed, using fallback
       return {
         consistencyIssues: [],
         dependencyConflicts: [],
@@ -1773,7 +1769,7 @@ Respond with ONLY valid JSON:
       const cleanedResponse = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       return JSON.parse(cleanedResponse);
     } catch {
-      console.warn('Pass 4 JSON parsing failed, using fallback');
+      // Pass 4 JSON parsing failed, using fallback
       return {
         prioritizedIssues: allIssues.sort((a, b) => {
           const severityOrder = { HIGH: 3, MEDIUM: 2, LOW: 1 };
@@ -1808,7 +1804,7 @@ Respond with ONLY valid JSON:
       const primaryExt = Object.entries(counts).sort(([,a], [,b]) => b - a)[0]?.[0];
       return langMap[primaryExt] || primaryExt || 'Mixed';
     } catch (error) {
-      console.warn('Error detecting primary language:', error);
+      // Error detecting primary language
       return 'Unknown';
     }
   }
@@ -1837,7 +1833,7 @@ Respond with ONLY valid JSON:
       
       return 'Unknown';
     } catch (error) {
-      console.warn('Error detecting framework:', error);
+      // Error detecting framework
       return 'Unknown';
     }
   }
@@ -1860,7 +1856,7 @@ Respond with ONLY valid JSON:
       
       return Array.from(types).join(', ');
     } catch (error) {
-      console.warn('Error detecting file types:', error);
+      // Error detecting file types
       return 'Mixed';
     }
   }

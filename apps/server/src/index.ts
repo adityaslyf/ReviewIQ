@@ -31,7 +31,7 @@ app.use(
 			if (allowedOrigins.indexOf(origin) !== -1) {
 				callback(null, true);
 			} else {
-				console.log('CORS blocked origin:', origin);
+				// CORS blocked origin
 				callback(new Error('Not allowed by CORS'));
 			}
 		},
@@ -47,9 +47,7 @@ app.use(express.json());
 // Request logging middleware
 app.use((req, res, next) => {
   // Only log non-status requests to reduce noise
-  if (!req.path.includes('/vector-status')) {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - Origin: ${req.get('Origin') || 'none'}`);
-  }
+  // Request logging removed for production
   next();
 });
 
@@ -82,7 +80,7 @@ function getGeminiService(): GeminiService | null {
     
     try {
       geminiService = new GeminiService(apiKey);
-      console.log("Gemini AI service initialized successfully");
+      // Gemini AI service initialized successfully
     } catch (error) {
       console.error("Failed to initialize Gemini service:", error);
       return null;
@@ -206,9 +204,9 @@ app.post("/reanalyze-pr/:prId", async (req, res) => {
       try {
         // Initialize vector service with current working directory as codebase path
         const codebasePath = process.cwd();
-        console.log('🚀 Initializing vector service with codebase:', codebasePath);
+        // Initializing vector service
         await githubService.initializeVectorService(geminiApiKey, codebasePath, true);
-        console.log('✅ Vector service initialization started in background');
+        // Vector service initialization started
       } catch (error) {
         console.warn('❌ Failed to initialize vector service:', error);
       }
@@ -222,14 +220,7 @@ app.post("/reanalyze-pr/:prId", async (req, res) => {
       const [owner, repo] = prData.repo.split('/');
       const installationId = process.env.GITHUB_INSTALLATION_ID;
       
-      console.log(`\n🚀 ===== STARTING ENHANCED PR ANALYSIS =====`);
-      console.log(`📋 Repository: ${owner}/${repo}`);
-      console.log(`🔢 PR Number: ${prData.number}`);
-      console.log(`📝 PR Title: ${prData.title}`);
-      console.log(`⚙️ Static Analysis: ${enableStaticAnalysis ? 'ENABLED' : 'DISABLED'}`);
-      console.log(`📊 Code Graph: ${enableCodeGraph ? 'ENABLED' : 'DISABLED'}`);
-      console.log(`🔍 Deep Analysis: ${forceDeepAnalysis ? 'ENABLED' : 'DISABLED'}`);
-      console.log(`===============================================\n`);
+      // Starting enhanced PR analysis
       
       if (!installationId) {
         throw new Error("GITHUB_INSTALLATION_ID not configured");
@@ -263,7 +254,7 @@ app.post("/reanalyze-pr/:prId", async (req, res) => {
       }
 
       // Step 3: Enhanced AI analysis with multi-model approach
-      console.log(`🤖 Starting AI analysis with enhanced context...`);
+      // Starting AI analysis with enhanced context
       const analysisResult = await enhancedGeminiService.analyzeWithMultiModel(
         pr.title,
         pr.body || "",
@@ -285,7 +276,7 @@ app.post("/reanalyze-pr/:prId", async (req, res) => {
         }
       );
 
-      console.log(`✅ AI analysis completed successfully!`);
+      // AI analysis completed successfully
 
       // Convert structured result to legacy format for database compatibility
       const legacyResult = convertToLegacyFormat(analysisResult.proAnalysis);
@@ -481,7 +472,7 @@ app.get("/github/pull-requests", async (req, res) => {
 // Enhanced analyze PR endpoint
 app.post("/analyze-pr", async (req, res) => {
   try {
-    console.log('🔍 PR Analysis requested for:', req.body.owner + '/' + req.body.repo + '#' + req.body.prNumber);
+    // PR Analysis requested
     const { 
       owner, 
       repo, 
@@ -512,9 +503,9 @@ app.post("/analyze-pr", async (req, res) => {
       try {
         // Initialize vector service with current working directory as codebase path
         const codebasePath = process.cwd();
-        console.log('🚀 Initializing vector service with codebase:', codebasePath);
+        // Initializing vector service
         await githubService.initializeVectorService(geminiApiKey, codebasePath, true);
-        console.log('✅ Vector service initialization started in background');
+        // Vector service initialization started
       } catch (error) {
         console.warn('❌ Failed to initialize vector service:', error);
       }
@@ -1068,7 +1059,7 @@ app.post("/vector-reset", (req, res) => {
   try {
     const githubService = getGitHubService();
     githubService.resetVectorService();
-    console.log('🔄 Vector service reset - ready for re-initialization');
+    // Vector service reset
     res.json({
       status: "OK",
       message: "Vector service reset successfully",
