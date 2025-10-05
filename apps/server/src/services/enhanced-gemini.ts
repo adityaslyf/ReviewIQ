@@ -82,67 +82,6 @@ export class EnhancedGeminiService {
         // Removed responseSchema for compatibility
       }
     });
-
-    // Skip the old responseSchema block
-    if (false) {
-      const oldSchema = {
-          type: "object",
-          properties: {
-            summary: { type: "string" },
-            potentialIssues: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  file: { type: "string" },
-                  line: { type: "number" },
-                  severity: { type: "string", enum: ["HIGH", "MEDIUM", "LOW"] },
-                  category: { type: "string", enum: ["Security", "Performance", "Logic", "Architecture", "Style", "Testing"] },
-                  issue: { type: "string" },
-                  suggestion: { type: "string" },
-                  patch: { type: "string" },
-                  reasoning: { type: "string" }
-                },
-                required: ["file", "severity", "category", "issue", "suggestion", "reasoning"]
-              }
-            },
-            refactorSuggestions: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  file: { type: "string" },
-                  line: { type: "number" },
-                  severity: { type: "string", enum: ["HIGH", "MEDIUM", "LOW"] },
-                  category: { type: "string", enum: ["Security", "Performance", "Logic", "Architecture", "Style", "Testing"] },
-                  issue: { type: "string" },
-                  suggestion: { type: "string" },
-                  patch: { type: "string" },
-                  reasoning: { type: "string" }
-                },
-                required: ["file", "severity", "category", "issue", "suggestion", "reasoning"]
-              }
-            },
-            testRecommendations: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  file: { type: "string" },
-                  suggestion: { type: "string" }
-                },
-                required: ["file", "suggestion"]
-              }
-            },
-            finalVerdict: { 
-              type: "string", 
-              enum: ["safe", "minor_changes", "major_fixes"]
-            }
-          },
-          // End of old schema block
-        };
-      }
-    }
   }
 
   async analyzeWithMultiModel(
@@ -172,14 +111,14 @@ export class EnhancedGeminiService {
     }
 
     // Step 2: Quick Flash analysis (unless forced deep)
-    let flashAnalysis: MultiModelResult['flashAnalysis'];
+    let flashAnalysis: MultiModelResult['flashAnalysis'] | undefined;
     let shouldRunDeepAnalysis = options.forceDeepAnalysis || false;
 
     if (!options.forceDeepAnalysis) {
       // Running Flash model quick analysis
       flashAnalysis = await this.runFlashAnalysis(prTitle, prDescription, diff, changedFiles);
       totalCost += 0.1; // Rough cost estimate
-      shouldRunDeepAnalysis = flashAnalysis.recommendDeepAnalysis || flashAnalysis.complexity !== 'LOW';
+      shouldRunDeepAnalysis = flashAnalysis?.recommendDeepAnalysis || flashAnalysis?.complexity !== 'LOW';
       // Flash analysis completed
     }
 
