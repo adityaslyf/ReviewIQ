@@ -74,7 +74,6 @@ function getGeminiService(): GeminiService | null {
   if (!geminiService) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      console.warn("GEMINI_API_KEY not set - AI analysis will be disabled");
       return null;
     }
     
@@ -208,10 +207,8 @@ app.post("/reanalyze-pr/:prId", async (req, res) => {
         await githubService.initializeVectorService(geminiApiKey, codebasePath, true);
         // Vector service initialization started
       } catch (error) {
-        console.warn('❌ Failed to initialize vector service:', error);
+        // Vector service initialization failed, continue without it
       }
-    } else {
-      console.warn('⚠️ GEMINI_API_KEY not found - vector service will not be available');
     }
     
     
@@ -507,10 +504,8 @@ app.post("/analyze-pr", async (req, res) => {
         await githubService.initializeVectorService(geminiApiKey, codebasePath, true);
         // Vector service initialization started
       } catch (error) {
-        console.warn('❌ Failed to initialize vector service:', error);
+        // Vector service initialization failed, continue without it
       }
-    } else {
-      console.warn('⚠️ GEMINI_API_KEY not found - vector service will not be available');
     }
     
     // Use original Gemini service for now to avoid import issues
@@ -551,7 +546,6 @@ app.post("/analyze-pr", async (req, res) => {
         patchGeneratorService = getPatchGeneratorService();
       } catch (error) {
         // Sandbox validation not available, continue without it
-        console.warn("Sandbox validation not available:", error);
       }
     }
 
@@ -624,48 +618,30 @@ app.post("/analyze-pr", async (req, res) => {
           let sandboxResults = null;
           if (enableSandboxValidation && sandboxValidatorService && patchGeneratorService) {
             try {
-              console.log('🔧 Starting sandbox validation...');
-              
               // Extract AI suggestions from analysis result
               const aiSuggestions = extractAISuggestions(analysisResult);
-              console.log(`📊 Extracted ${aiSuggestions.length} AI suggestions for sandbox validation`);
               
               if (aiSuggestions.length > 0) {
                 // Generate patches from AI suggestions
                 const fileContents = await patchGeneratorService.extractFileContents(prData.diff);
-                console.log(`📁 Extracted file contents for ${Object.keys(fileContents).length} files`);
-                
                 const patchResults = await patchGeneratorService.generatePatches(aiSuggestions, fileContents);
-                console.log(`🔨 Generated ${patchResults.patches.length} patches from AI suggestions`);
                 
                 if (patchResults.patches.length > 0) {
                   // Validate patches in sandbox
                   const repoUrl = `https://github.com/${owner}/${repo}.git`;
                   const branchName = prData.pr.head?.ref || 'main';
                   
-                  console.log(`🐳 Running sandbox validation for ${patchResults.patches.length} patches...`);
                   sandboxResults = await sandboxValidatorService.validatePatches(
                     repoUrl,
                     branchName,
                     patchResults.patches
                   );
-                  console.log(`✅ Sandbox validation completed: ${sandboxResults.length} results`);
-                } else {
-                  console.log('⚠️ No patches generated, skipping sandbox validation');
                 }
-              } else {
-                console.log('⚠️ No AI suggestions found, skipping sandbox validation');
               }
             } catch (sandboxError) {
-              console.error("❌ Sandbox validation failed:", sandboxError);
+              console.error("Sandbox validation failed:", sandboxError);
               // Continue without sandbox results
             }
-          } else {
-            console.log('⚠️ Sandbox validation not available:', {
-              enabled: enableSandboxValidation,
-              hasValidator: !!sandboxValidatorService,
-              hasPatchGenerator: !!patchGeneratorService
-            });
           }
 
           // Store AI analysis results
@@ -739,6 +715,15 @@ app.post("/analyze-pr", async (req, res) => {
       details: errorMessage
     });
   }
+});
+
+// Handle OPTIONS preflight for GitHub OAuth endpoint
+app.options("/auth/github", (req, res) => {
+  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.header("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Origin");
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.sendStatus(200);
 });
 
 // GitHub OAuth callback endpoint

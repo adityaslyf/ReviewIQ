@@ -42,29 +42,21 @@ function AuthCallback() {
 
 
         // Exchange code for access token
-        console.log('🔄 Attempting to exchange code for token...');
         const response = await apiCall('/auth/github', {
           method: 'POST',
           body: JSON.stringify({ code }),
         });
 
-        console.log('📡 Response status:', response.status);
-        console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
-
         if (!response.ok) {
-          let errorData;
           const contentType = response.headers.get('content-type');
           
           if (contentType && contentType.includes('application/json')) {
-            errorData = await response.json();
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Failed to authenticate with GitHub`);
           } else {
-            // If response is not JSON (like HTML error page), get text
-            const errorText = await response.text();
-            console.error('❌ Non-JSON error response:', errorText);
-            throw new Error(`Server returned ${response.status}: ${errorText.substring(0, 200)}...`);
+            // If response is not JSON (like HTML error page)
+            throw new Error(`Authentication failed (${response.status})`);
           }
-          
-          throw new Error(errorData.error || `Failed to authenticate with GitHub (${response.status})`);
         }
 
         const { access_token } = await response.json();

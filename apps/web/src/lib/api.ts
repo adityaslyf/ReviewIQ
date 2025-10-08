@@ -21,12 +21,6 @@ export const getApiBaseUrl = (): string => {
     }
   }
   
-  // Only log in development
-  if (import.meta.env.DEV) {
-    console.log('🔧 API Base URL:', baseUrl);
-    console.log('🌐 Current hostname:', window.location.hostname);
-  }
-  
   return baseUrl;
 };
 
@@ -37,11 +31,6 @@ export const apiCall = async (endpoint: string, options?: RequestInit) => {
   const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const url = `${cleanBaseUrl}${cleanEndpoint}`;
-  
-  // Only log in development
-  if (import.meta.env.DEV) {
-    console.log('📡 Making API call to:', url);
-  }
   
   return fetch(url, {
     headers: {
