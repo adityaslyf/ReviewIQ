@@ -124,31 +124,50 @@ app.get("/health", (_req, res) => {
 });
 
 
-// API endpoint to fetch PRs from database (filtered by user if authenticated)
+// API endpoint to fetch PRs from database (REQUIRES authentication, user-specific)
 app.get("/pull-requests", async (req, res) => {
   try {
     const { db, schema } = await import("./db");
     const token = req.headers.authorization?.replace('Bearer ', '');
     
-    let prs;
-    if (token) {
-      // If user is authenticated, filter by their PRs
-      const user = await getUserFromToken(token);
-      if (user) {
-        prs = await db
-          .select()
-          .from(schema.pullRequests)
-          .where(eq(schema.pullRequests.userId, user.id))
-          .orderBy(schema.pullRequests.createdAt);
-      } else {
-        // Invalid token, return all PRs
-        prs = await db.select().from(schema.pullRequests).orderBy(schema.pullRequests.createdAt);
-      }
-    } else {
-      // No token, return all PRs
-      prs = await db.select().from(schema.pullRequests).orderBy(schema.pullRequests.createdAt);
+    if (!token) {
+      return res.status(401).json({ error: "Authentication required" });
     }
-    
+
+    // Get authenticated user
+    const user = await getUserFromToken(token);
+    if (!user) {
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
+
+    // Fetch ONLY the authenticated user's PRs with AI suggestions
+    const prsWithAI = await db
+      .select({
+        pr: schema.pullRequests,
+        ai: schema.aiSuggestions
+      })
+      .from(schema.pullRequests)
+      .leftJoin(schema.aiSuggestions, eq(schema.aiSuggestions.pullRequestId, schema.pullRequests.id))
+      .where(eq(schema.pullRequests.userId, user.id))
+      .orderBy(schema.pullRequests.createdAt);
+
+    // Group by PR and get the latest AI suggestion for each
+    const prMap = new Map();
+    prsWithAI.forEach((row: any) => {
+      const prId = row.pr.id;
+      if (!prMap.has(prId)) {
+        prMap.set(prId, { ...row.pr, aiSuggestions: null });
+      }
+      // Keep the most recent AI suggestion
+      if (row.ai) {
+        const existing = prMap.get(prId);
+        if (!existing.aiSuggestions || new Date(row.ai.createdAt) > new Date(existing.aiSuggestions.createdAt)) {
+          prMap.get(prId).aiSuggestions = row.ai;
+        }
+      }
+    });
+
+    const prs = Array.from(prMap.values());
     res.json(prs);
   } catch (error) {
     console.error("Error fetching PRs:", error);
@@ -354,11 +373,22 @@ app.post("/reanalyze-pr/:prId", async (req, res) => {
   }
 });
 
-app.get("/pull-requests-with-ai", async (_req, res) => {
+app.get("/pull-requests-with-ai", async (req, res) => {
   try {
     const { db, schema } = await import("./db");
+    const token = req.headers.authorization?.replace('Bearer ', '');
     
-    // Get PRs with their AI suggestions
+    if (!token) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    // Get authenticated user
+    const user = await getUserFromToken(token);
+    if (!user) {
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
+    
+    // Get ONLY the authenticated user's PRs with their AI suggestions
     const prsWithAI = await db
       .select({
         pr: schema.pullRequests,
@@ -366,6 +396,7 @@ app.get("/pull-requests-with-ai", async (_req, res) => {
       })
       .from(schema.pullRequests)
       .leftJoin(schema.aiSuggestions, eq(schema.aiSuggestions.pullRequestId, schema.pullRequests.id))
+      .where(eq(schema.pullRequests.userId, user.id))
       .orderBy(schema.pullRequests.createdAt);
 
     // Group by PR and get the latest AI suggestion for each
@@ -586,13 +617,56 @@ app.post("/analyze-pr", async (req, res) => {
       .where(eq(schema.pullRequests.number, prNumber))
       .limit(1);
 
-    // Get user from token if provided
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    // Get user from token (either from header or body)
+    const token = req.headers.authorization?.replace('Bearer ', '') || userToken;
     let userId = null;
     if (token) {
       const user = await getUserFromToken(token);
       if (user) {
         userId = user.id;
+      }
+    }
+    
+    // If we still don't have a userId, try to find/create user from GitHub API
+    if (!userId && userToken) {
+      try {
+        // Fetch user info from GitHub
+        const userResponse = await fetch("https://api.github.com/user", {
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+            Accept: "application/json",
+          },
+        });
+        
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          
+          // Check if user exists in our database
+          const existingUser = await db.query.users.findFirst({
+            where: (users, { eq }) => eq(users.githubId, userData.id.toString()),
+          });
+          
+          if (existingUser) {
+            userId = existingUser.id;
+          } else {
+            // Create new user
+            const [newUser] = await db
+              .insert(schema.users)
+              .values({
+                githubId: userData.id.toString(),
+                username: userData.login,
+                name: userData.name,
+                email: userData.email,
+                avatarUrl: userData.avatar_url,
+                accessToken: userToken,
+              })
+              .returning();
+            userId = newUser.id;
+          }
+        }
+      } catch (error) {
+        // Failed to get user from GitHub, continue without userId
+        console.error("Failed to fetch user from GitHub:", error);
       }
     }
 

@@ -54,7 +54,7 @@ export class WebhookService {
 
   private async storePullRequestData(
     prData: { 
-      pr: { number: number; title: string; user: { login: string }; body: string | null }; 
+      pr: { number: number; title: string; user: { login: string }; body: string | null; state?: string }; 
       diff: string; 
       files: Array<{ filename: string; additions: number; deletions: number; changes: number }> 
     }, 
@@ -63,13 +63,21 @@ export class WebhookService {
     const { pr } = prData;
 
     try {
+      // Try to find user by GitHub username
+      const user = await db.query.users.findFirst({
+        where: (users, { eq }) => eq(users.username, repository.owner.login),
+      });
+
       // Store pull request and return the inserted record
       const [storedPR] = await db.insert(schema.pullRequests).values({
+        userId: user?.id || null, // Associate with user if found
         repo: `${repository.owner.login}/${repository.name}`,
+        owner: repository.owner.login, // Store owner
         number: pr.number,
         title: pr.title,
         author: pr.user.login,
         summary: null, // Will be filled by AI analysis
+        status: pr.state || "open",
       }).returning();
 
       
