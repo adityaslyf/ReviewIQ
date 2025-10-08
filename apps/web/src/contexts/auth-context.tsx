@@ -1,12 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { apiCall } from '@/lib/api';
 
 export interface User {
   id: number;
-  login: string;
+  githubId: string;
+  username: string;
   name: string;
   email: string;
-  avatar_url: string;
-  html_url: string;
+  avatarUrl: string;
+  createdAt?: string;
 }
 
 interface AuthContextType {
@@ -79,10 +81,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const fetchUserData = async (token: string) => {
     setIsLoading(true);
     try {
-      const response = await fetch('https://api.github.com/user', {
+      // Fetch user data from our backend instead of GitHub directly
+      const response = await apiCall('/auth/user', {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Accept': 'application/vnd.github.v3+json',
         },
       });
 

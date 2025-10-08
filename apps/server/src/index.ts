@@ -124,11 +124,31 @@ app.get("/health", (_req, res) => {
 });
 
 
-// API endpoint to fetch PRs from database
-app.get("/pull-requests", async (_req, res) => {
+// API endpoint to fetch PRs from database (filtered by user if authenticated)
+app.get("/pull-requests", async (req, res) => {
   try {
     const { db, schema } = await import("./db");
-    const prs = await db.select().from(schema.pullRequests).orderBy(schema.pullRequests.createdAt);
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    let prs;
+    if (token) {
+      // If user is authenticated, filter by their PRs
+      const user = await getUserFromToken(token);
+      if (user) {
+        prs = await db
+          .select()
+          .from(schema.pullRequests)
+          .where(eq(schema.pullRequests.userId, user.id))
+          .orderBy(schema.pullRequests.createdAt);
+      } else {
+        // Invalid token, return all PRs
+        prs = await db.select().from(schema.pullRequests).orderBy(schema.pullRequests.createdAt);
+      }
+    } else {
+      // No token, return all PRs
+      prs = await db.select().from(schema.pullRequests).orderBy(schema.pullRequests.createdAt);
+    }
+    
     res.json(prs);
   } catch (error) {
     console.error("Error fetching PRs:", error);
@@ -566,17 +586,38 @@ app.post("/analyze-pr", async (req, res) => {
       .where(eq(schema.pullRequests.number, prNumber))
       .limit(1);
 
+    // Get user from token if provided
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    let userId = null;
+    if (token) {
+      const user = await getUserFromToken(token);
+      if (user) {
+        userId = user.id;
+      }
+    }
+
     let storedPR;
     if (existingPR.length > 0) {
       storedPR = existingPR[0];
+      // Update userId if not set and we have a user
+      if (!storedPR.userId && userId) {
+        await db
+          .update(schema.pullRequests)
+          .set({ userId, updatedAt: new Date() })
+          .where(eq(schema.pullRequests.id, storedPR.id));
+        storedPR.userId = userId;
+      }
     } else {
       // Store PR data
       const [newPR] = await db.insert(schema.pullRequests).values({
+        userId,
         repo: `${owner}/${repo}`,
+        owner,
         number: prNumber,
         title: prData.pr.title,
         author: prData.pr.user?.login || "unknown",
         summary: null,
+        status: prData.pr.state || "open",
       }).returning();
       storedPR = newPR;
     }
@@ -717,6 +758,48 @@ app.post("/analyze-pr", async (req, res) => {
   }
 });
 
+// Helper function to get user from access token
+async function getUserFromToken(token: string) {
+  const { db, schema } = await import("./db");
+  const { eq } = await import("drizzle-orm");
+  
+  const user = await db.query.users.findFirst({
+    where: eq(schema.users.accessToken, token),
+  });
+  
+  return user;
+}
+
+// Get current user endpoint
+app.get("/auth/user", async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: "No authorization token provided" });
+    }
+
+    const user = await getUserFromToken(token);
+    
+    if (!user) {
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
+
+    res.json({
+      id: user.id,
+      githubId: user.githubId,
+      username: user.username,
+      name: user.name,
+      email: user.email,
+      avatarUrl: user.avatarUrl,
+      createdAt: user.createdAt,
+    });
+  } catch (error) {
+    console.error("Error fetching user:", error);
+    res.status(500).json({ error: "Failed to fetch user information" });
+  }
+});
+
 // Handle OPTIONS preflight for GitHub OAuth endpoint
 app.options("/auth/github", (req, res) => {
   res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
@@ -773,7 +856,71 @@ app.post("/auth/github", async (req, res) => {
       throw new Error("No access token received");
     }
 
-    res.json({ access_token: tokenData.access_token });
+    // Fetch user information from GitHub
+    const userResponse = await fetch("https://api.github.com/user", {
+      headers: {
+        Authorization: `Bearer ${tokenData.access_token}`,
+        Accept: "application/json",
+      },
+    });
+
+    if (!userResponse.ok) {
+      throw new Error("Failed to fetch user information from GitHub");
+    }
+
+    const userData = await userResponse.json();
+
+    // Store or update user in database
+    const { db, schema } = await import("./db");
+    
+    // Check if user exists
+    const existingUser = await db.query.users.findFirst({
+      where: (users, { eq }) => eq(users.githubId, userData.id.toString()),
+    });
+
+    let user;
+    if (existingUser) {
+      // Update existing user
+      const updated = await db
+        .update(schema.users)
+        .set({
+          username: userData.login,
+          name: userData.name,
+          email: userData.email,
+          avatarUrl: userData.avatar_url,
+          accessToken: tokenData.access_token, // Store for API access
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.users.githubId, userData.id.toString()))
+        .returning();
+      user = updated[0];
+    } else {
+      // Create new user
+      const inserted = await db
+        .insert(schema.users)
+        .values({
+          githubId: userData.id.toString(),
+          username: userData.login,
+          name: userData.name,
+          email: userData.email,
+          avatarUrl: userData.avatar_url,
+          accessToken: tokenData.access_token,
+        })
+        .returning();
+      user = inserted[0];
+    }
+
+    res.json({ 
+      access_token: tokenData.access_token,
+      user: {
+        id: user.id,
+        githubId: user.githubId,
+        username: user.username,
+        name: user.name,
+        email: user.email,
+        avatarUrl: user.avatarUrl,
+      }
+    });
   } catch (error: unknown) {
     console.error("GitHub OAuth error:", error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

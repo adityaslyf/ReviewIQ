@@ -59,10 +59,15 @@ function AuthCallback() {
           }
         }
 
-        const { access_token } = await response.json();
+        const { access_token, user } = await response.json();
         
         // Store token in localStorage
         localStorage.setItem('github_token', access_token);
+        
+        // Store user data (optional, for immediate access)
+        if (user) {
+          localStorage.setItem('user_data', JSON.stringify(user));
+        }
         
         // Trigger a custom event to notify other components
         window.dispatchEvent(new CustomEvent('github-token-updated', { detail: access_token }));
