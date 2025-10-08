@@ -57,7 +57,18 @@ interface PullRequest {
 }
 
 async function fetchPullRequests(): Promise<PullRequest[]> {
-  const response = await apiCall("/pull-requests-with-ai");
+  const token = localStorage.getItem('github_token');
+  if (!token) {
+    throw new Error("Authentication required");
+  }
+
+  const response = await apiCall("/pull-requests-with-ai", {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  
   if (!response.ok) {
     throw new Error("Failed to fetch pull requests");
   }

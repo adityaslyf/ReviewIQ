@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { useAuth } from "../contexts/auth-context";
 // import { Card, CardContent } from "../components/ui/card"; // Removed in favor of BrutalistCard
 import { Badge } from "../components/ui/badge";
@@ -11,6 +11,20 @@ import {
   BarChart3
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { apiCall } from "@/lib/api";
+
+interface PullRequest {
+  id: number;
+  repo: string;
+  number: number;
+  title: string;
+  author: string;
+  aiSuggestions?: {
+    id: number;
+    summary: string;
+    analysisStatus: string;
+  } | null;
+}
 
 export const Route = createFileRoute("/dashboard")({
   component: DashboardComponent,
@@ -29,7 +43,51 @@ function DashboardComponent() {
 function DashboardContent() {
   const { isAuthenticated, isLoading } = useAuth();
 
-  if (isLoading) {
+  // Fetch dashboard stats (user-specific)
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: async () => {
+      const token = localStorage.getItem('github_token');
+      if (!token) {
+        return { totalReviews: 0, totalPRs: 0, totalProjects: 0 };
+      }
+
+      try {
+        const response = await apiCall('/pull-requests-with-ai', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          return { totalReviews: 0, totalPRs: 0, totalProjects: 0 };
+        }
+
+        const prs: PullRequest[] = await response.json();
+        
+        // Calculate stats from user's PRs
+        const totalPRs = prs.length;
+        const analyzedPRs = prs.filter((pr) => pr.aiSuggestions).length;
+        
+        // Count unique repositories
+        const uniqueRepos = new Set(prs.map((pr) => pr.repo)).size;
+
+        return {
+          totalReviews: analyzedPRs,
+          totalPRs,
+          totalProjects: uniqueRepos,
+        };
+      } catch (error) {
+        console.error('Failed to fetch stats:', error);
+        return { totalReviews: 0, totalPRs: 0, totalProjects: 0 };
+      }
+    },
+    enabled: isAuthenticated,
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+
+  if (isLoading || (isAuthenticated && statsLoading)) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
         <section className="relative overflow-hidden bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 py-8 min-h-screen flex items-center justify-center">
@@ -47,6 +105,11 @@ function DashboardContent() {
   if (!isAuthenticated) {
     return null;
   }
+
+  // Use real data or fallback to 0
+  const totalReviews = stats?.totalReviews || 0;
+  const totalPRs = stats?.totalPRs || 0;
+  const totalProjects = stats?.totalProjects || 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
@@ -66,15 +129,15 @@ function DashboardContent() {
           </div>
           <div className="flex items-center gap-12">
             <div className="text-center">
-              <div className="text-3xl font-bold text-gray-900">78</div>
+              <div className="text-3xl font-bold text-gray-900">{totalReviews}</div>
               <div className="text-sm text-gray-500 uppercase">Reviews</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-gray-900">56</div>
+              <div className="text-3xl font-bold text-gray-900">{totalPRs}</div>
               <div className="text-sm text-gray-500 uppercase">PRS</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-gray-900">203</div>
+              <div className="text-3xl font-bold text-gray-900">{totalProjects}</div>
               <div className="text-sm text-gray-500 uppercase">Projects</div>
             </div>
           </div>

@@ -54,7 +54,18 @@ interface Repository {
 }
 
 async function fetchPullRequests(): Promise<PullRequest[]> {
-  const response = await apiCall("/pull-requests-with-ai");
+  const token = localStorage.getItem('github_token');
+  if (!token) {
+    throw new Error("Authentication required");
+  }
+
+  const response = await apiCall("/pull-requests-with-ai", {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  
   if (!response.ok) {
     throw new Error("Failed to fetch pull requests");
   }
@@ -217,7 +228,22 @@ export function PRBrowsePage() {
         }
       }, 1000); // Check after 1 second to allow server to update
       
-      refetch();
+      // Refetch stored PRs to get the updated data with AI suggestions
+      await refetch();
+      
+      // Update the GitHub PR in the local state to show it has analysis
+      setGithubPRs(prev => prev.map(p => 
+        p.number === pr.number 
+          ? { ...p, aiSuggestions: { 
+              id: 0, 
+              summary: '', 
+              refactorSuggestions: '',
+              potentialIssues: '',
+              analysisStatus: 'completed' 
+            } }
+          : p
+      ));
+      
       toast.success(`AI analysis completed for PR #${pr.number}`);
       
     } catch (error) {
@@ -569,7 +595,7 @@ export function PRBrowsePage() {
                           </Button>
                         )}
                         
-                        {source === 'github' && (
+                        {source === 'github' && !pr.aiSuggestions && (
                           <Button
                             onClick={() => handleAnalyzePR(pr)}
                             disabled={analyzingPRs.has(pr.number)}

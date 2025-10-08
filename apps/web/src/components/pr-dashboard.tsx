@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "./ui/badge";
 import { Checkbox } from "./ui/checkbox";
-import { ExternalLink, GitPullRequest, User, Calendar, Brain, Wrench, AlertTriangle, CheckCircle, XCircle, Info, Zap, Search } from "lucide-react";
+import { ExternalLink, GitPullRequest, User, Calendar, Brain, Wrench, AlertTriangle, CheckCircle, XCircle, Info, Zap, Search, Eye } from "lucide-react";
 import { useState } from "react";
 import { Sidebar } from "./sidebar";
 import { toast } from "sonner";
@@ -59,7 +59,18 @@ interface Repository {
 }
 
 async function fetchPullRequests(): Promise<PullRequest[]> {
-  const response = await apiCall("/pull-requests-with-ai");
+  const token = localStorage.getItem('github_token');
+  if (!token) {
+    throw new Error("Authentication required");
+  }
+
+  const response = await apiCall("/pull-requests-with-ai", {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  
   if (!response.ok) {
     throw new Error("Failed to fetch pull requests");
   }
@@ -226,7 +237,20 @@ export function PRDashboard() {
       await response.json();
       
       // Refresh the stored PRs to show the new analysis
-      refetch();
+      await refetch();
+      
+      // Update the GitHub PR in the local state to show it has analysis
+      setGithubPRs(prev => prev.map(p => 
+        p.number === pr.number 
+          ? { ...p, aiSuggestions: { 
+              id: 0, 
+              summary: '', 
+              refactorSuggestions: '',
+              potentialIssues: '',
+              analysisStatus: 'completed' 
+            } }
+          : p
+      ));
       
       toast.success(`AI analysis completed for PR #${pr.number}`);
       
@@ -635,7 +659,18 @@ export function PRDashboard() {
                             View on GitHub <ExternalLink className="h-3 w-3" />
                           </a>
                           
-                          {source === 'github' && (
+                          {pr.aiSuggestions ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedKey({ repo: pr.repo, number: pr.number });
+                              }}
+                              className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 transition-colors"
+                            >
+                              <Eye className="h-3 w-3" />
+                              View Review
+                            </button>
+                          ) : source === 'github' && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
