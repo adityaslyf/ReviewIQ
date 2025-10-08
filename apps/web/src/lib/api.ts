@@ -33,7 +33,10 @@ export const getApiBaseUrl = (): string => {
 // Helper function for making API calls
 export const apiCall = async (endpoint: string, options?: RequestInit) => {
   const baseUrl = getApiBaseUrl();
-  const url = `${baseUrl}${endpoint}`;
+  // Ensure proper URL construction by removing trailing slash from baseUrl and leading slash from endpoint if both exist
+  const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = `${cleanBaseUrl}${cleanEndpoint}`;
   
   // Only log in development
   if (import.meta.env.DEV) {

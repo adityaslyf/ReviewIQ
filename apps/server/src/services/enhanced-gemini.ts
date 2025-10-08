@@ -59,9 +59,9 @@ export class EnhancedGeminiService {
     
     this.genAI = new GoogleGenerativeAI(apiKey);
     
-    // Flash model for quick analysis
+    // Flash model for quick analysis - using latest stable Flash model
     this.flashModel = this.genAI.getGenerativeModel({ 
-      model: "gemini-pro",
+      model: "gemini-2.5-flash",
       generationConfig: {
         temperature: 0.1,
         topK: 20,
@@ -71,9 +71,9 @@ export class EnhancedGeminiService {
       }
     });
     
-    // Pro model for deep analysis
+    // Pro model for deep analysis - using latest stable Pro model with improved reasoning
     this.proModel = this.genAI.getGenerativeModel({ 
-      model: "gemini-pro",
+      model: "gemini-2.5-pro",
       generationConfig: {
         temperature: 0.1,
         topK: 40,
