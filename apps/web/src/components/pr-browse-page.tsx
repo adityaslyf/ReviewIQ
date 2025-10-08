@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "./ui/badge";
-import { Checkbox } from "./ui/checkbox";
 import { Button } from "./ui/button";
 import { BrutalistCard } from "./brutalist-card";
 import { 
@@ -92,8 +91,6 @@ export function PRBrowsePage() {
   const [githubPRs, setGithubPRs] = useState<PullRequest[]>([]);
   const [analyzingPRs, setAnalyzingPRs] = useState<Set<number>>(new Set());
   const [isFetchingPRs, setIsFetchingPRs] = useState(false);
-  const [selectedPRs, setSelectedPRs] = useState<Set<number>>(new Set());
-  const [prFilter, setPrFilter] = useState<"all" | "open" | "closed">("all");
   const [source, setSource] = useState<"stored" | "github">("stored");
   const [searchTerm, setSearchTerm] = useState("");
   const hasLoggedInitialStatus = useRef(false);
@@ -147,7 +144,6 @@ export function PRBrowsePage() {
   const handleRepoSelect = (repo: Repository) => {
     setSelectedRepo(repo);
     setGithubPRs([]);
-    setSelectedPRs(new Set());
   };
 
   const handleFetchGitHubPRs = async (repo: Repository) => {
@@ -162,7 +158,6 @@ export function PRBrowsePage() {
       const [owner, repoName] = repo.full_name.split('/');
       const githubPRs = await fetchGitHubPRs(owner, repoName, token);
       setGithubPRs(githubPRs);
-      setSelectedPRs(new Set());
       toast.success(`Fetched ${githubPRs.length} PRs from ${repo.full_name}`);
     } catch (error) {
       console.error("Failed to fetch GitHub PRs:", error);
@@ -258,29 +253,7 @@ export function PRBrowsePage() {
     }
   };
 
-  const handleToggleSelect = (prNumber: number) => {
-    setSelectedPRs(prev => {
-      const next = new Set(prev);
-      if (next.has(prNumber)) next.delete(prNumber); else next.add(prNumber);
-      return next;
-    });
-  };
-
-  const handleAnalyzeSelected = async () => {
-    if (!selectedRepo || selectedPRs.size === 0) return;
-    const numbers = Array.from(selectedPRs);
-    toast.info(`Starting analysis for ${numbers.length} selected PR${numbers.length > 1 ? 's' : ''}...`);
-    for (const num of numbers) {
-      const pr = githubPRs.find(p => p.number === num);
-      if (pr) {
-        await handleAnalyzePR(pr);
-      }
-    }
-    setSelectedPRs(new Set());
-  };
-
-  const filteredGithubPRs = githubPRs.filter(pr => prFilter === 'all' || (pr.state || '').toLowerCase() === prFilter);
-  const displayedPRs: PullRequest[] = source === 'github' ? filteredGithubPRs : (prs || []);
+  const displayedPRs: PullRequest[] = source === 'github' ? githubPRs : (prs || []);
   
   // Apply search filter
   const searchFilteredPRs = displayedPRs.filter(pr => 
@@ -312,40 +285,42 @@ export function PRBrowsePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
-      <section className="relative overflow-hidden bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 py-8 min-h-screen">
+      <section className="relative overflow-hidden bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 py-4 sm:py-8 min-h-screen">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Clean Header Section */}
-          <div className="flex items-center justify-between mb-12">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3 mb-2">
-                <GitPullRequest className="h-8 w-8 text-gray-600" />
+          {/* Clean Header Section - Responsive */}
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 sm:mb-8 lg:mb-12 gap-4 sm:gap-6">
+            <div className="flex-1">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2 sm:gap-3 mb-2">
+                <GitPullRequest className="h-6 w-6 sm:h-8 sm:w-8 text-gray-600" />
                 Pull Requests
               </h1>
-              <p className="text-gray-600">
+              <p className="text-sm sm:text-base text-gray-600">
                 Browse and analyze pull requests from GitHub repositories
               </p>
             </div>
-            <div className="flex items-center gap-12">
+            
+            {/* Stats - Responsive Grid */}
+            <div className="grid grid-cols-3 gap-4 sm:gap-6 lg:gap-12 lg:flex lg:items-center">
               <div className="text-center">
-                <div className="text-3xl font-bold text-gray-900">{searchFilteredPRs.length}</div>
-                <div className="text-sm text-gray-500 uppercase">PRs</div>
+                <div className="text-2xl sm:text-3xl font-bold text-gray-900">{searchFilteredPRs.length}</div>
+                <div className="text-xs sm:text-sm text-gray-500 uppercase">PRs</div>
               </div>
               {analyzingPRs.size > 0 && (
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-purple-600">{analyzingPRs.size}</div>
-                  <div className="text-sm text-gray-500 uppercase">Analyzing</div>
+                  <div className="text-2xl sm:text-3xl font-bold text-purple-600">{analyzingPRs.size}</div>
+                  <div className="text-xs sm:text-sm text-gray-500 uppercase">Analyzing</div>
                 </div>
               )}
               <div className="text-center">
-                <div className="text-3xl font-bold text-gray-900">{prs?.filter(pr => pr.aiSuggestions).length || 0}</div>
-                <div className="text-sm text-gray-500 uppercase">Analyzed</div>
+                <div className="text-2xl sm:text-3xl font-bold text-gray-900">{prs?.filter(pr => pr.aiSuggestions).length || 0}</div>
+                <div className="text-xs sm:text-sm text-gray-500 uppercase">Analyzed</div>
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-12 gap-8">
-            {/* Sidebar */}
-            <div className="col-span-3">
-              <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8">
+            {/* Sidebar - Responsive */}
+            <div className="lg:col-span-3">
+              <div className="space-y-4 sm:space-y-6">
                 {/* Source Selection */}
                 <BrutalistCard
                   title="Data Source"
@@ -383,7 +358,7 @@ export function PRBrowsePage() {
                   
                   <div className="text-xs text-black space-y-1 bg-gray-200 p-3 border-2 border-gray-600 font-bold">
                     <div>Stored: {prs?.length || 0}</div>
-                    <div>GitHub: {filteredGithubPRs.length}</div>
+                    <div>GitHub: {githubPRs.length}</div>
                   </div>
                 </BrutalistCard>
 
@@ -411,97 +386,28 @@ export function PRBrowsePage() {
                   />
                 </BrutalistCard>
               )}
-
-              {/* Filters */}
-              <BrutalistCard
-                title="Filters"
-                content="Filter pull requests by their current status to focus on specific types of changes."
-                variant="green"
-                className="w-full max-w-none"
-              >
-                <div className="flex items-center gap-4 mb-4">
-                  <span className="w-8 h-8 bg-green-400 rounded-full flex items-center justify-center">
-                    <span className="w-4 h-4 bg-white rounded-full"></span>
-                  </span>
-                  <div className="flex gap-2">
-                    <Badge className="bg-black text-white px-2 py-1 text-xs font-bold">FILTER</Badge>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-1">
-                  {(['all', 'open', 'closed'] as const).map((filter) => (
-                    <Button
-                      key={filter}
-                      variant={prFilter === filter ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setPrFilter(filter)}
-                      className={`text-xs font-bold border-2 ${prFilter === filter ? 'bg-green-600 hover:bg-green-700 text-white border-green-800' : 'border-gray-600 text-black hover:bg-gray-600 hover:text-white'}`}
-                    >
-                      {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                    </Button>
-                  ))}
-                </div>
-              </BrutalistCard>
-
-              {/* Actions */}
-              {source === 'github' && (
-                <BrutalistCard
-                  title="Actions"
-                  content="Perform bulk operations on selected pull requests for efficient analysis workflows."
-                  variant="purple"
-                  className="w-full max-w-none"
-                >
-                  <div className="flex items-center gap-4 mb-4">
-                    <Brain className="h-8 w-8 text-gray-600" />
-                    <div className="flex gap-2">
-                      <Badge className="bg-black text-white px-2 py-1 text-xs font-bold">AI</Badge>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <Button
-                      onClick={handleAnalyzeSelected}
-                      disabled={selectedPRs.size === 0 || analyzingPRs.size > 0}
-                      className="w-full bg-purple-600 hover:bg-purple-700 text-white disabled:bg-gray-400 border-2 border-purple-800 font-bold"
-                      size="sm"
-                    >
-                      <Brain className="h-3 w-3 mr-2" />
-                      Analyze Selected ({selectedPRs.size})
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setSelectedPRs(new Set())}
-                      disabled={selectedPRs.size === 0}
-                      className="w-full border-2 border-gray-600 text-black hover:bg-gray-600 hover:text-white disabled:text-gray-500 font-bold"
-                      size="sm"
-                    >
-                      Clear Selection
-                    </Button>
-                  </div>
-                </BrutalistCard>
-              )}
               </div>
             </div>
 
-            {/* Main Content */}
-            <div className="col-span-9">
-              {/* Search Bar */}
-              <div className="mb-6">
+            {/* Main Content - Responsive */}
+            <div className="lg:col-span-9">
+              {/* Search Bar - Responsive */}
+              <div className="mb-4 sm:mb-6">
                 <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-600" />
                 <input
                   type="text"
-                  placeholder="Search pull requests by title, author, or repository..."
+                  placeholder="Search pull requests..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-white text-black placeholder-gray-600 border-3 border-gray-600 rounded-none focus:outline-none focus:border-blue-600 focus:bg-gray-100 font-medium shadow-[4px_4px_0_#4b5563]"
+                  className="w-full pl-10 pr-4 py-2 sm:py-3 text-sm sm:text-base bg-white text-black placeholder-gray-600 border-2 sm:border-3 border-gray-600 rounded-none focus:outline-none focus:border-blue-600 focus:bg-gray-100 font-medium shadow-[2px_2px_0_#4b5563] sm:shadow-[4px_4px_0_#4b5563]"
                 />
               </div>
             </div>
 
-            {/* PR Grid */}
+            {/* PR Grid - Responsive */}
             {isFetchingPRs && source === 'github' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {[...Array(6)].map((_, i) => (
                   <div key={i} className="p-6 animate-pulse bg-gray-100 rounded-lg border border-gray-300">
                     <div className="h-4 w-3/4 bg-gray-300 rounded mb-3" />
@@ -526,7 +432,7 @@ export function PRBrowsePage() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
                 {searchFilteredPRs.map((pr) => (
                   <BrutalistCard
                     key={`${pr.repo}-${pr.number}`}
@@ -563,12 +469,6 @@ export function PRBrowsePage() {
 
                     <div className="flex flex-col gap-3">
                       <div className="flex items-center gap-2">
-                        {source === 'github' && (
-                          <Checkbox
-                            checked={selectedPRs.has(pr.number)}
-                            onCheckedChange={() => handleToggleSelect(pr.number)}
-                          />
-                        )}
                         <a
                           href={pr.url || `https://github.com/${pr.repo}/pull/${pr.number}`}
                           target="_blank"

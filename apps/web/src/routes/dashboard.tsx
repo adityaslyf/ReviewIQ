@@ -114,37 +114,39 @@ function DashboardContent() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       {/* Main Content */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 py-8 min-h-screen">
+      <section className="relative overflow-hidden bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 py-4 sm:py-8 min-h-screen">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Clean Header Section */}
-        <div className="flex items-center justify-between mb-12">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3 mb-2">
-              <BarChart3 className="h-8 w-8 text-gray-600" />
+        {/* Clean Header Section - Responsive */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8 sm:mb-12 gap-6">
+          <div className="flex-1">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2 sm:gap-3 mb-2">
+              <BarChart3 className="h-6 w-6 sm:h-8 sm:w-8 text-gray-600" />
               Welcome to ReviewIQ
             </h1>
-            <p className="text-gray-600">
+            <p className="text-sm sm:text-base text-gray-600">
               Manage your pull requests and AI analysis workflow
             </p>
           </div>
-          <div className="flex items-center gap-12">
+          
+          {/* Stats - Responsive Grid */}
+          <div className="grid grid-cols-3 gap-4 sm:gap-6 lg:gap-12 lg:flex lg:items-center">
             <div className="text-center">
-              <div className="text-3xl font-bold text-gray-900">{totalReviews}</div>
-              <div className="text-sm text-gray-500 uppercase">Reviews</div>
+              <div className="text-2xl sm:text-3xl font-bold text-gray-900">{totalReviews}</div>
+              <div className="text-xs sm:text-sm text-gray-500 uppercase">Reviews</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-gray-900">{totalPRs}</div>
-              <div className="text-sm text-gray-500 uppercase">PRS</div>
+              <div className="text-2xl sm:text-3xl font-bold text-gray-900">{totalPRs}</div>
+              <div className="text-xs sm:text-sm text-gray-500 uppercase">PRS</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-gray-900">{totalProjects}</div>
-              <div className="text-sm text-gray-500 uppercase">Projects</div>
+              <div className="text-2xl sm:text-3xl font-bold text-gray-900">{totalProjects}</div>
+              <div className="text-xs sm:text-sm text-gray-500 uppercase">Projects</div>
             </div>
           </div>
         </div>
 
-        {/* Brutalist Cards Dashboard */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 relative">
+        {/* Brutalist Cards Dashboard - Responsive Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 relative">
           
           {/* Pull Requests Card */}
           <Link to="/pull-requests">
