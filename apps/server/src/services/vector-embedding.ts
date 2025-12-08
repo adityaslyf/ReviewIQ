@@ -2,6 +2,10 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as fs from 'fs';
 import * as path from 'path';
 import { createHash } from 'crypto';
+import { PgVectorService, getPgVectorService } from './pg-vector';
+
+// Storage mode for embeddings
+export type StorageMode = 'memory' | 'postgres';
 
 // Types for our vector embedding system
 export interface CodeChunk {
@@ -51,14 +55,15 @@ export interface VectorSearchQuery {
  * Features:
  * - Intelligent code chunking (AST-based)
  * - Semantic embeddings with Google Gemini
- * - Vector similarity search
+ * - Vector similarity search with pgvector (PostgreSQL) or in-memory
  * - Context relevance ranking
  * - Incremental updates
+ * - Persistent storage with PostgreSQL
  */
 export class VectorEmbeddingService {
   private genAI: GoogleGenerativeAI;
   private embeddingModel: string = 'text-embedding-004'; // Latest Gemini embedding model
-  private vectorStore: Map<string, EmbeddedChunk> = new Map();
+  private vectorStore: Map<string, EmbeddedChunk> = new Map(); // Fallback in-memory store
   private vectorIndex: { [key: string]: string[] } = {}; // Simple inverted index
   private isInitialized: boolean = false;
   private isInitializing: boolean = false;
@@ -70,8 +75,37 @@ export class VectorEmbeddingService {
     estimatedCompletion?: Date;
   } | null = null;
 
-  constructor(apiKey: string) {
+  // PostgreSQL vector storage
+  private storageMode: StorageMode;
+  private pgVectorService: PgVectorService | null = null;
+  private repoOwner?: string;
+  private repoName?: string;
+
+  constructor(apiKey: string, options?: { 
+    storageMode?: StorageMode;
+    repoOwner?: string;
+    repoName?: string;
+  }) {
     this.genAI = new GoogleGenerativeAI(apiKey);
+    
+    // Default to postgres if DATABASE_URL is available, otherwise use memory
+    this.storageMode = options?.storageMode || (process.env.DATABASE_URL ? 'postgres' : 'memory');
+    this.repoOwner = options?.repoOwner;
+    this.repoName = options?.repoName;
+
+    if (this.storageMode === 'postgres') {
+      this.pgVectorService = getPgVectorService(this.repoOwner, this.repoName);
+      console.log('🗄️ Using PostgreSQL (pgvector) for vector storage');
+    } else {
+      console.log('💾 Using in-memory storage for vectors (data will not persist)');
+    }
+  }
+
+  /**
+   * Get the current storage mode
+   */
+  getStorageMode(): StorageMode {
+    return this.storageMode;
   }
 
   /**
@@ -123,22 +157,45 @@ export class VectorEmbeddingService {
    */
   private async performInitialization(codebasePath: string, forceReindex: boolean): Promise<void> {
     try {
-      const vectorStorePath = path.join(codebasePath, '.reviewiq', 'vector-store.json');
-      
       this.updateProgress('Checking existing vector store', 10, 100);
       
-      if (!forceReindex && fs.existsSync(vectorStorePath)) {
-        console.log('📂 Loading existing vector store...');
-        this.updateProgress('Loading existing embeddings', 20, 100);
-        await this.loadVectorStore(vectorStorePath);
-        this.updateProgress('Vector store loaded', 100, 100);
+      if (this.storageMode === 'postgres' && this.pgVectorService) {
+        // PostgreSQL mode - use pgvector
+        console.log('🗄️ Using PostgreSQL with pgvector for vector storage');
+        
+        // Enable pgvector extension
+        this.updateProgress('Enabling pgvector extension', 15, 100);
+        await this.pgVectorService.enableExtension();
+        
+        // Check if we already have embeddings
+        const existingCount = await this.pgVectorService.getEmbeddingCount();
+        
+        if (!forceReindex && existingCount > 0) {
+          console.log(`📂 Found ${existingCount} existing embeddings in PostgreSQL`);
+          this.updateProgress('Embeddings loaded from database', 100, 100);
+        } else {
+          console.log('🔄 Indexing codebase to PostgreSQL (this may take several minutes)...');
+          this.updateProgress('Scanning codebase', 20, 100);
+          await this.indexCodebase(codebasePath);
+          this.updateProgress('Embeddings stored in database', 100, 100);
+        }
       } else {
-        console.log('🔄 Creating new vector store (this may take several minutes)...');
-        this.updateProgress('Scanning codebase', 20, 100);
-        await this.indexCodebase(codebasePath);
-        this.updateProgress('Saving vector store', 90, 100);
-        await this.saveVectorStore(vectorStorePath);
-        this.updateProgress('Vector store created', 100, 100);
+        // In-memory mode - use file-based persistence
+        const vectorStorePath = path.join(codebasePath, '.reviewiq', 'vector-store.json');
+        
+        if (!forceReindex && fs.existsSync(vectorStorePath)) {
+          console.log('📂 Loading existing vector store from file...');
+          this.updateProgress('Loading existing embeddings', 20, 100);
+          await this.loadVectorStore(vectorStorePath);
+          this.updateProgress('Vector store loaded', 100, 100);
+        } else {
+          console.log('🔄 Creating new vector store (this may take several minutes)...');
+          this.updateProgress('Scanning codebase', 20, 100);
+          await this.indexCodebase(codebasePath);
+          this.updateProgress('Saving vector store', 90, 100);
+          await this.saveVectorStore(vectorStorePath);
+          this.updateProgress('Vector store created', 100, 100);
+        }
       }
       
       this.isInitialized = true;
@@ -186,6 +243,7 @@ export class VectorEmbeddingService {
   getInitializationStatus(): {
     isInitialized: boolean;
     isInitializing: boolean;
+    storageMode: StorageMode;
     progress?: {
       stage: string;
       current: number;
@@ -197,7 +255,8 @@ export class VectorEmbeddingService {
   } {
     const status = {
       isInitialized: this.isInitialized,
-      isInitializing: this.isInitializing
+      isInitializing: this.isInitializing,
+      storageMode: this.storageMode
     };
 
     if (this.initializationProgress) {
@@ -221,14 +280,50 @@ export class VectorEmbeddingService {
   /**
    * Reset the vector service to uninitialized state
    */
-  reset(): void {
+  async reset(): Promise<void> {
     console.log('🔄 Resetting vector service...');
     this.isInitialized = false;
     this.isInitializing = false;
     this.initializationProgress = null;
-    this.codeChunks = [];
-    this.embeddings = [];
+    
+    // Clear in-memory store
+    this.vectorStore.clear();
+    this.vectorIndex = {};
+    
+    // Clear PostgreSQL if using postgres mode
+    if (this.storageMode === 'postgres' && this.pgVectorService) {
+      try {
+        await this.pgVectorService.deleteAllChunks();
+        console.log('🗄️ Cleared PostgreSQL embeddings');
+      } catch (error) {
+        console.warn('Failed to clear PostgreSQL embeddings:', error);
+      }
+    }
+    
     console.log('✅ Vector service reset complete');
+  }
+
+  /**
+   * Get statistics about the vector store
+   */
+  async getStats(): Promise<{
+    totalChunks: number;
+    storageMode: StorageMode;
+    chunksByType?: Record<string, number>;
+    chunksByLanguage?: Record<string, number>;
+  }> {
+    if (this.storageMode === 'postgres' && this.pgVectorService) {
+      const stats = await this.pgVectorService.getStats();
+      return {
+        ...stats,
+        storageMode: this.storageMode,
+      };
+    }
+    
+    return {
+      totalChunks: this.vectorStore.size,
+      storageMode: this.storageMode,
+    };
   }
 
   /**
@@ -414,7 +509,20 @@ export class VectorEmbeddingService {
     // Generate embedding for the query
     const queryEmbedding = await this.generateQueryEmbedding(query.query);
     
-    // Calculate similarities
+    // Use PostgreSQL if available, otherwise fall back to in-memory
+    if (this.storageMode === 'postgres' && this.pgVectorService) {
+      console.log('🗄️ Using pgvector for similarity search');
+      return await this.pgVectorService.semanticSearch(queryEmbedding, {
+        maxResults: query.maxResults || 20,
+        minSimilarity: query.minSimilarity || 0.3,
+        includeTypes: query.includeTypes,
+        excludeTypes: query.excludeTypes,
+        fileContext: query.fileContext,
+      });
+    }
+    
+    // Fallback to in-memory search
+    console.log('💾 Using in-memory similarity search');
     const results: SemanticSearchResult[] = [];
     
     for (const [id, chunk] of this.vectorStore) {
@@ -601,12 +709,19 @@ export class VectorEmbeddingService {
     
     this.updateProgress('Storing embeddings', 85, 100);
     
-    // Store in vector store
-    for (const chunk of embeddedChunks) {
-      this.vectorStore.set(chunk.id, chunk);
+    // Store embeddings based on storage mode
+    if (this.storageMode === 'postgres' && this.pgVectorService) {
+      // Store in PostgreSQL using pgvector
+      console.log(`🗄️ Storing ${embeddedChunks.length} embeddings in PostgreSQL...`);
+      await this.pgVectorService.storeChunks(embeddedChunks);
+      console.log(`✅ Stored ${embeddedChunks.length} embeddings in PostgreSQL`);
+    } else {
+      // Store in memory
+      for (const chunk of embeddedChunks) {
+        this.vectorStore.set(chunk.id, chunk);
+      }
+      console.log(`✅ Indexed ${embeddedChunks.length} code chunks in memory`);
     }
-    
-    console.log(`✅ Indexed ${embeddedChunks.length} code chunks`);
   }
 
   /**
@@ -856,6 +971,20 @@ export class VectorEmbeddingService {
 }
 
 // Factory function
-export function getVectorEmbeddingService(geminiApiKey: string): VectorEmbeddingService {
-  return new VectorEmbeddingService(geminiApiKey);
+let vectorEmbeddingServiceInstance: VectorEmbeddingService | null = null;
+
+export function getVectorEmbeddingService(
+  geminiApiKey: string,
+  options?: {
+    storageMode?: StorageMode;
+    repoOwner?: string;
+    repoName?: string;
+    forceNew?: boolean;
+  }
+): VectorEmbeddingService {
+  // Create new instance if forced or if options change
+  if (options?.forceNew || !vectorEmbeddingServiceInstance) {
+    vectorEmbeddingServiceInstance = new VectorEmbeddingService(geminiApiKey, options);
+  }
+  return vectorEmbeddingServiceInstance;
 }

@@ -1,17 +1,31 @@
 import type { Request, Response } from "express";
 import { getGitHubService } from "../services";
+import { getPgVectorService } from "../services/pg-vector";
 
 /**
  * Get vector service status
  * GET /vector-status
  */
-export function getVectorStatus(req: Request, res: Response) {
+export async function getVectorStatus(req: Request, res: Response) {
   try {
     const githubService = getGitHubService();
     const status = githubService.getVectorServiceStatus();
+    
+    // Get PostgreSQL stats if available
+    let pgStats = null;
+    if (process.env.DATABASE_URL) {
+      try {
+        const pgService = getPgVectorService();
+        pgStats = await pgService.getStats();
+      } catch (error) {
+        console.warn("Failed to get pgvector stats:", error);
+      }
+    }
+    
     res.json({
       status: "OK",
       vectorService: status,
+      pgvectorStats: pgStats,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
