@@ -143,6 +143,134 @@ async function triggerBackgroundIndexing(
 }
 
 /**
+ * Incrementally update embeddings for changed files in a PR
+ * Only re-indexes files that have actually changed
+ */
+async function updateEmbeddingsForChangedFiles(
+  owner: string,
+  repo: string,
+  changedFiles: Array<{ filename: string; status: string; patch?: string }>,
+  installationId: number,
+  geminiApiKey: string
+): Promise<{ updated: number; deleted: number; skipped: number }> {
+  const results = { updated: 0, deleted: 0, skipped: 0 };
+  
+  try {
+    const { Octokit } = await import("octokit");
+    const { createAppAuth } = await import("@octokit/auth-app");
+    
+    const octokit = new Octokit({
+      authStrategy: createAppAuth,
+      auth: {
+        appId: process.env.GITHUB_APP_ID!,
+        privateKey: process.env.GITHUB_PRIVATE_KEY!.replace(/\\n/g, "\n"),
+        installationId,
+      },
+    });
+    
+    const vectorService = getVectorEmbeddingService(geminiApiKey, {
+      storageMode: "postgres",
+      repoOwner: owner,
+      repoName: repo,
+    });
+    
+    const pgService = getPgVectorService(owner, repo);
+    
+    // Get default branch
+    const { data: repoData } = await octokit.rest.repos.get({ owner, repo });
+    const branch = repoData.default_branch;
+    
+    // Filter for code files only
+    const codeExtensions = [".ts", ".tsx", ".js", ".jsx", ".py", ".java", ".go", ".rs", ".cpp", ".c"];
+    const codeFiles = changedFiles.filter(f => 
+      codeExtensions.some(ext => f.filename.endsWith(ext)) &&
+      !f.filename.includes("node_modules") &&
+      !f.filename.includes("dist/") &&
+      !f.filename.includes(".min.")
+    );
+    
+    for (const file of codeFiles) {
+      try {
+        // Handle deleted files
+        if (file.status === "removed") {
+          const deleted = await pgService.deleteByFilePath(file.filename);
+          results.deleted += deleted;
+          continue;
+        }
+        
+        // Fetch current file content
+        const { data: fileData } = await octokit.rest.repos.getContent({
+          owner,
+          repo,
+          path: file.filename,
+          ref: branch,
+        });
+        
+        if (!("content" in fileData) || fileData.type !== "file") {
+          results.skipped++;
+          continue;
+        }
+        
+        const content = Buffer.from(fileData.content, "base64").toString("utf-8");
+        
+        // Skip very large files
+        if (content.length > 50000) {
+          results.skipped++;
+          continue;
+        }
+        
+        // Calculate content hash
+        const contentHash = crypto.createHash("md5").update(content).digest("hex");
+        
+        // Check if file already has up-to-date embeddings
+        const status = await pgService.getFileEmbeddingStatus(file.filename, contentHash);
+        
+        if (status.exists && status.isUpToDate) {
+          results.skipped++;
+          continue;
+        }
+        
+        // Delete old embeddings for this file
+        if (status.exists) {
+          await pgService.deleteByFilePath(file.filename);
+        }
+        
+        // Chunk the code
+        const chunks = await vectorService.chunkCode(file.filename, content);
+        
+        // Generate embeddings and store
+        for (const chunk of chunks) {
+          const embedding = await vectorService.generateQueryEmbedding(
+            `${chunk.type}: ${chunk.functionName || chunk.className || "module"}\n${chunk.content}`
+          );
+          
+          await pgService.storeChunk({
+            ...chunk,
+            embedding,
+            hash: contentHash,
+            lastUpdated: new Date(),
+          });
+        }
+        
+        results.updated++;
+        
+      } catch (error) {
+        // Skip files that fail
+        results.skipped++;
+      }
+    }
+    
+    // Rate limit
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+  } catch (error) {
+    console.error(`[RAG] Incremental update failed:`, error instanceof Error ? error.message : error);
+  }
+  
+  return results;
+}
+
+/**
  * Get pull requests from database (user-specific)
  * GET /pull-requests
  */
@@ -511,6 +639,22 @@ export async function analyzePR(req: Request, res: Response) {
           const embeddingCount = await pgService.getEmbeddingCount();
           
           if (embeddingCount > 0) {
+            // Phase 3: Incremental update - update embeddings for changed files
+            const changedFilesWithStatus = prData.files.map(f => ({
+              filename: f.filename,
+              status: f.status || "modified",
+              patch: f.patch,
+            }));
+            
+            // Run incremental update in background (non-blocking)
+            updateEmbeddingsForChangedFiles(
+              owner,
+              repo,
+              changedFilesWithStatus,
+              installationId,
+              geminiApiKey
+            ).catch(() => {});
+            
             const vectorService = getVectorEmbeddingService(geminiApiKey, {
               storageMode: "postgres",
               repoOwner: owner,

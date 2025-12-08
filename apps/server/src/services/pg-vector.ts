@@ -107,6 +107,78 @@ export class PgVectorService {
   }
 
   /**
+   * Delete embeddings for a specific file path
+   * Used for incremental updates when files change
+   */
+  async deleteByFilePath(filePath: string): Promise<number> {
+    try {
+      const conditions = [eq(schema.codeEmbeddings.filePath, filePath)];
+      
+      if (this.repoOwner && this.repoName) {
+        conditions.push(eq(schema.codeEmbeddings.repoOwner, this.repoOwner));
+        conditions.push(eq(schema.codeEmbeddings.repoName, this.repoName));
+      }
+      
+      const result = await db
+        .delete(schema.codeEmbeddings)
+        .where(and(...conditions));
+      
+      return result.rowCount || 0;
+    } catch (error) {
+      return 0;
+    }
+  }
+
+  /**
+   * Delete embeddings for multiple file paths (batch operation)
+   */
+  async deleteByFilePaths(filePaths: string[]): Promise<number> {
+    let totalDeleted = 0;
+    for (const filePath of filePaths) {
+      totalDeleted += await this.deleteByFilePath(filePath);
+    }
+    return totalDeleted;
+  }
+
+  /**
+   * Check if a file has embeddings and if they're up-to-date
+   */
+  async getFileEmbeddingStatus(filePath: string, contentHash?: string): Promise<{
+    exists: boolean;
+    isUpToDate: boolean;
+    chunkCount: number;
+  }> {
+    try {
+      const conditions = [eq(schema.codeEmbeddings.filePath, filePath)];
+      
+      if (this.repoOwner && this.repoName) {
+        conditions.push(eq(schema.codeEmbeddings.repoOwner, this.repoOwner));
+        conditions.push(eq(schema.codeEmbeddings.repoName, this.repoName));
+      }
+      
+      const results = await db
+        .select({
+          contentHash: schema.codeEmbeddings.contentHash,
+        })
+        .from(schema.codeEmbeddings)
+        .where(and(...conditions));
+      
+      if (results.length === 0) {
+        return { exists: false, isUpToDate: false, chunkCount: 0 };
+      }
+      
+      // Check if content hash matches (if provided)
+      const isUpToDate = contentHash 
+        ? results.some(r => r.contentHash === contentHash)
+        : true;
+      
+      return { exists: true, isUpToDate, chunkCount: results.length };
+    } catch (error) {
+      return { exists: false, isUpToDate: false, chunkCount: 0 };
+    }
+  }
+
+  /**
    * Semantic similarity search using pgvector cosine distance
    */
   async semanticSearch(
