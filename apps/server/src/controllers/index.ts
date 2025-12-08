@@ -20,5 +20,7 @@ export {
   getVectorStatus,
   resetVectorService,
   testSandbox,
+  indexRepository,
+  searchCodeContext,
 } from "./vector.controller";
 

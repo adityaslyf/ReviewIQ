@@ -909,6 +909,61 @@ ${fileData.content}
       }
     }
 
+    // 10. RAG CONTEXT - Semantically retrieved relevant code from the codebase
+    if (enhancedContext.ragContext?.retrievedChunks?.length > 0) {
+      const rag = enhancedContext.ragContext;
+      contextSections += `
+
+## 🎯 RAG-Retrieved Codebase Context (Semantically Relevant Code)
+
+**IMPORTANT**: The following code chunks were retrieved from the repository using semantic similarity search.
+These are the most relevant parts of the codebase to understand this PR's context.
+
+**Retrieval Summary:**
+- **Chunks Retrieved:** ${rag.summary.totalChunks}
+- **Files Covered:** ${rag.summary.filesCovered}
+- **Average Relevance:** ${(rag.summary.avgSimilarity * 100).toFixed(1)}%
+`;
+
+      // Group chunks by file for better organization
+      const chunksByFile: { [key: string]: any[] } = {};
+      for (const chunk of rag.retrievedChunks) {
+        if (!chunksByFile[chunk.filePath]) {
+          chunksByFile[chunk.filePath] = [];
+        }
+        chunksByFile[chunk.filePath].push(chunk);
+      }
+
+      for (const [filePath, chunks] of Object.entries(chunksByFile)) {
+        contextSections += `
+
+### 📄 ${filePath}`;
+        
+        for (const chunk of chunks) {
+          const label = chunk.functionName 
+            ? `Function: ${chunk.functionName}` 
+            : chunk.className 
+              ? `Class: ${chunk.className}` 
+              : `${chunk.type}`;
+          
+          contextSections += `
+
+**${label}** (Lines ${chunk.lines}, ${(chunk.similarity * 100).toFixed(0)}% relevant)
+\`\`\`${this.getFileExtension(filePath)}
+${chunk.content}
+\`\`\``;
+        }
+      }
+
+      contextSections += `
+
+**Use this context to**:
+1. Understand how the changed code fits into the broader codebase
+2. Identify potential breaking changes to related code
+3. Suggest consistent patterns and naming conventions
+4. Recommend appropriate test cases based on similar code`;
+    }
+
     return contextSections;
   }
 

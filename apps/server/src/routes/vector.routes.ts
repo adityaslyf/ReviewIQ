@@ -4,25 +4,39 @@ import {
   getVectorStatus,
   resetVectorService,
   testSandbox,
+  indexRepository,
+  searchCodeContext,
 } from "../controllers";
 
 const router: RouterType = Router();
 
 /**
  * Get vector service status
- * GET /vector-status
+ * GET /vector/status
  */
 router.get("/status", getVectorStatus);
 
 /**
  * Reset vector service
- * POST /vector-reset
+ * POST /vector/reset
  */
 router.post("/reset", resetVectorService);
 
 /**
+ * Index a repository - generate embeddings
+ * POST /vector/index-repo
+ */
+router.post("/index-repo", indexRepository);
+
+/**
+ * Search for relevant code context
+ * POST /vector/search
+ */
+router.post("/search", searchCodeContext);
+
+/**
  * Test sandbox validation
- * POST /test-sandbox
+ * POST /vector/test-sandbox
  */
 router.post("/test-sandbox", testSandbox);
 

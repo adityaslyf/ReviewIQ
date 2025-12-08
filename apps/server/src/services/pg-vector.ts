@@ -21,9 +21,7 @@ export class PgVectorService {
   async enableExtension(): Promise<void> {
     try {
       await db.execute(sql`CREATE EXTENSION IF NOT EXISTS vector`);
-      console.log("✅ pgvector extension enabled");
     } catch (error) {
-      console.error("Failed to enable pgvector extension:", error);
       throw error;
     }
   }
@@ -33,6 +31,11 @@ export class PgVectorService {
    */
   async storeChunk(chunk: EmbeddedChunk): Promise<void> {
     try {
+      // Ensure required fields are never null
+      const startLine = chunk.startLine || 1;
+      const endLine = chunk.endLine || startLine;
+      const content = chunk.content || '';
+      
       // Check if chunk already exists (by file path, start line, and chunk type)
       const existing = await db
         .select({ id: schema.codeEmbeddings.id })
@@ -40,7 +43,7 @@ export class PgVectorService {
         .where(
           and(
             eq(schema.codeEmbeddings.filePath, chunk.filePath),
-            eq(schema.codeEmbeddings.startLine, chunk.startLine),
+            eq(schema.codeEmbeddings.startLine, startLine),
             eq(schema.codeEmbeddings.chunkType, chunk.type)
           )
         )
@@ -51,14 +54,14 @@ export class PgVectorService {
         await db
           .update(schema.codeEmbeddings)
           .set({
-            content: chunk.content,
+            content: content,
             embedding: chunk.embedding,
             contentHash: chunk.hash,
-            endLine: chunk.endLine,
+            endLine: endLine,
             functionName: chunk.functionName,
             className: chunk.className,
-            language: chunk.metadata.language,
-            fileSize: chunk.metadata.size,
+            language: chunk.metadata?.language,
+            fileSize: chunk.metadata?.size,
             imports: chunk.imports ? JSON.stringify(chunk.imports) : null,
             exports: chunk.exports ? JSON.stringify(chunk.exports) : null,
             repoOwner: this.repoOwner,
@@ -73,13 +76,13 @@ export class PgVectorService {
           chunkType: chunk.type,
           functionName: chunk.functionName,
           className: chunk.className,
-          startLine: chunk.startLine,
-          endLine: chunk.endLine,
-          content: chunk.content,
+          startLine: startLine,
+          endLine: endLine,
+          content: content,
           embedding: chunk.embedding,
           contentHash: chunk.hash,
-          language: chunk.metadata.language,
-          fileSize: chunk.metadata.size,
+          language: chunk.metadata?.language,
+          fileSize: chunk.metadata?.size,
           imports: chunk.imports ? JSON.stringify(chunk.imports) : null,
           exports: chunk.exports ? JSON.stringify(chunk.exports) : null,
           repoOwner: this.repoOwner,
@@ -87,8 +90,7 @@ export class PgVectorService {
         });
       }
     } catch (error) {
-      console.error(`Failed to store chunk ${chunk.id}:`, error);
-      throw error;
+      // Don't throw - continue with other chunks
     }
   }
 
@@ -96,17 +98,12 @@ export class PgVectorService {
    * Store multiple chunks in batch
    */
   async storeChunks(chunks: EmbeddedChunk[]): Promise<void> {
-    console.log(`📦 Storing ${chunks.length} chunks in database...`);
-    
     // Process in batches of 100 for better performance
     const batchSize = 100;
     for (let i = 0; i < chunks.length; i += batchSize) {
       const batch = chunks.slice(i, i + batchSize);
       await Promise.all(batch.map((chunk) => this.storeChunk(chunk)));
-      console.log(`  Stored ${Math.min(i + batchSize, chunks.length)}/${chunks.length} chunks`);
     }
-    
-    console.log(`✅ Stored ${chunks.length} chunks in database`);
   }
 
   /**
@@ -201,7 +198,6 @@ export class PgVectorService {
 
       return searchResults;
     } catch (error) {
-      console.error("Semantic search failed:", error);
       throw error;
     }
   }

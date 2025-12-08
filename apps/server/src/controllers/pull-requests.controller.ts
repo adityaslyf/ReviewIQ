@@ -3,6 +3,144 @@ import { eq } from "drizzle-orm";
 import { getGitHubService, getGeminiService } from "../services";
 import { getUserFromToken, verifyUserRepoAccess } from "../middleware";
 import { extractAISuggestions, convertToLegacyFormat } from "../utils";
+import { getPgVectorService } from "../services/pg-vector";
+import { getVectorEmbeddingService } from "../services/vector-embedding";
+import crypto from "crypto";
+
+// Track which repos are currently being indexed to avoid duplicate indexing
+const indexingInProgress = new Set<string>();
+
+/**
+ * Trigger background indexing for a repository
+ * This runs asynchronously and doesn't block the PR analysis
+ */
+async function triggerBackgroundIndexing(
+  owner: string,
+  repo: string,
+  installationId: number,
+  geminiApiKey: string
+): Promise<void> {
+  const repoKey = `${owner}/${repo}`;
+  
+  // Prevent duplicate indexing
+  if (indexingInProgress.has(repoKey)) {
+    return;
+  }
+  
+  indexingInProgress.add(repoKey);
+  console.log(`[RAG] Starting background indexing for ${repoKey}`);
+  
+  try {
+    const { Octokit } = await import("octokit");
+    const { createAppAuth } = await import("@octokit/auth-app");
+    
+    // Create installation-scoped Octokit
+    const octokit = new Octokit({
+      authStrategy: createAppAuth,
+      auth: {
+        appId: process.env.GITHUB_APP_ID!,
+        privateKey: process.env.GITHUB_PRIVATE_KEY!.replace(/\\n/g, "\n"),
+        installationId,
+      },
+    });
+    
+    // Get repository default branch
+    const { data: repoData } = await octokit.rest.repos.get({ owner, repo });
+    const branch = repoData.default_branch;
+    
+    // Get repository tree
+    const { data: tree } = await octokit.rest.git.getTree({
+      owner,
+      repo,
+      tree_sha: branch,
+      recursive: "true",
+    });
+    
+    // Filter for code files
+    const codeExtensions = [".ts", ".tsx", ".js", ".jsx", ".py", ".java", ".go", ".rs", ".cpp", ".c"];
+    const codeFiles = tree.tree.filter(
+      (item) =>
+        item.type === "blob" &&
+        item.path &&
+        codeExtensions.some((ext) => item.path!.endsWith(ext)) &&
+        !item.path.includes("node_modules") &&
+        !item.path.includes("dist/") &&
+        !item.path.includes("build/") &&
+        !item.path.includes(".min.")
+    );
+    
+    // Limit files for background indexing (index most important files first)
+    const maxFiles = 50; // Limit to 50 files for background indexing
+    const filesToIndex = codeFiles.slice(0, maxFiles);
+    
+    const vectorService = getVectorEmbeddingService(geminiApiKey, {
+      storageMode: "postgres",
+      repoOwner: owner,
+      repoName: repo,
+    });
+    
+    const pgService = getPgVectorService(owner, repo);
+    
+    // Process files in batches
+    const batchSize = 5;
+    let indexed = 0;
+    
+    for (let i = 0; i < filesToIndex.length; i += batchSize) {
+      const batch = filesToIndex.slice(i, i + batchSize);
+      
+      await Promise.all(
+        batch.map(async (file) => {
+          try {
+            const { data: fileData } = await octokit.rest.repos.getContent({
+              owner,
+              repo,
+              path: file.path!,
+              ref: branch,
+            });
+            
+            if ("content" in fileData && fileData.type === "file") {
+              const content = Buffer.from(fileData.content, "base64").toString("utf-8");
+              
+              // Skip very large files
+              if (content.length > 50000) return;
+              
+              // Chunk the code
+              const chunks = await vectorService.chunkCode(file.path!, content);
+              
+              // Generate embeddings and store
+              for (const chunk of chunks) {
+                const embedding = await vectorService.generateQueryEmbedding(
+                  `${chunk.type}: ${chunk.functionName || chunk.className || "module"}\n${chunk.content}`
+                );
+                
+                await pgService.storeChunk({
+                  ...chunk,
+                  embedding,
+                  hash: crypto.createHash("md5").update(chunk.content).digest("hex"),
+                  lastUpdated: new Date(),
+                });
+              }
+              
+              indexed++;
+            }
+          } catch (error) {
+            // Silently skip files that fail
+          }
+        })
+      );
+      
+      // Rate limiting
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    
+    console.log(`[RAG] Indexed ${indexed} files for ${repoKey}`);
+    
+  } catch (error) {
+    console.error(`[RAG] Indexing failed for ${repoKey}:`, error instanceof Error ? error.message : error);
+  } finally {
+    indexingInProgress.delete(repoKey);
+  }
+}
 
 /**
  * Get pull requests from database (user-specific)
@@ -187,20 +325,9 @@ export async function analyzePR(req: Request, res: Response) {
 
     const githubService = getGitHubService();
 
-    // Initialize vector embedding service if Gemini API key is available
+    // Note: Vector service initialization is now handled via /vector/index-repo endpoint
+    // We no longer auto-index the local codebase - only GitHub repos
     const geminiApiKey = process.env.GEMINI_API_KEY;
-    if (geminiApiKey) {
-      try {
-        const codebasePath = process.cwd();
-        await githubService.initializeVectorService(
-          geminiApiKey,
-          codebasePath,
-          true
-        );
-      } catch (error) {
-        // Vector service initialization failed, continue without it
-      }
-    }
 
     const geminiService = getGeminiService();
     if (!geminiService) {
@@ -376,6 +503,63 @@ export async function analyzePR(req: Request, res: Response) {
         );
       }
 
+      // RAG: Retrieve relevant context from vector database
+      let ragContext = null;
+      if (geminiApiKey) {
+        try {
+          const pgService = getPgVectorService(owner, repo);
+          const embeddingCount = await pgService.getEmbeddingCount();
+          
+          if (embeddingCount > 0) {
+            const vectorService = getVectorEmbeddingService(geminiApiKey, {
+              storageMode: "postgres",
+              repoOwner: owner,
+              repoName: repo,
+            });
+            
+            // Build search query from PR title, description, and changed files
+            const searchQuery = `${prData.pr.title} ${prData.pr.body || ""} ${prData.files.map(f => f.filename).join(" ")}`;
+            const queryEmbedding = await vectorService.generateQueryEmbedding(searchQuery);
+            
+            // Search for relevant code context
+            const relevantContext = await pgService.semanticSearch(queryEmbedding, {
+              maxResults: 15,
+              minSimilarity: 0.25,
+            });
+            
+            if (relevantContext.length > 0) {
+              ragContext = {
+                retrievedChunks: relevantContext.map(r => ({
+                  filePath: r.chunk.filePath,
+                  type: r.chunk.type,
+                  functionName: r.chunk.functionName,
+                  className: r.chunk.className,
+                  content: r.chunk.content,
+                  similarity: r.similarity,
+                  lines: `${r.chunk.startLine}-${r.chunk.endLine}`,
+                })),
+                summary: {
+                  totalChunks: relevantContext.length,
+                  avgSimilarity: relevantContext.reduce((sum, r) => sum + r.similarity, 0) / relevantContext.length,
+                  filesCovered: [...new Set(relevantContext.map(r => r.chunk.filePath))].length,
+                },
+              };
+            }
+          } else {
+            // Auto-index for first-time repos (non-blocking)
+            triggerBackgroundIndexing(owner, repo, installationId, geminiApiKey).catch(() => {});
+          }
+        } catch (error) {
+          // Continue without RAG context
+        }
+      }
+
+      // Merge RAG context with existing enhanced context
+      const enhancedContext = {
+        ...(prData as any).enhancedContext,
+        ragContext,
+      };
+
       const analysisResult = await geminiService.analyzePullRequest(
         prData.pr.title,
         prData.pr.body || "",
@@ -388,7 +572,7 @@ export async function analyzePR(req: Request, res: Response) {
         })),
         enableMultiPass || forceDeepAnalysis,
         enableStaticAnalysis,
-        (prData as any).enhancedContext || null
+        enhancedContext
       );
 
       let sandboxResults = null;
