@@ -178,100 +178,61 @@ export class PgVectorService {
     }
   }
 
-  /**
-   * Semantic similarity search using pgvector cosine distance
-   */
+  // Find similar code chunks using vector similarity search (cosine distance)
   async semanticSearch(
     queryEmbedding: number[],
-    options: {
-      maxResults?: number;
-      minSimilarity?: number;
-      includeTypes?: string[];
-      excludeTypes?: string[];
-      fileContext?: string[];
-    } = {}
+    options: { maxResults?: number; minSimilarity?: number; includeTypes?: string[]; excludeTypes?: string[]; fileContext?: string[] } = {}
   ): Promise<SemanticSearchResult[]> {
-    const {
-      maxResults = 20,
-      minSimilarity = 0.3,
-      includeTypes,
-      excludeTypes,
-      fileContext,
-    } = options;
+    const { maxResults = 20, minSimilarity = 0.3, includeTypes, excludeTypes, fileContext } = options;
 
-    try {
-      // Build the vector string for pgvector
-      const vectorStr = `[${queryEmbedding.join(",")}]`;
+    const vectorStr = `[${queryEmbedding.join(",")}]`;
 
-      // Use raw SQL for vector similarity search
-      // pgvector uses <=> for cosine distance (1 - similarity)
-      const results = await db.execute(sql`
-        SELECT 
-          id,
-          file_path,
-          chunk_type,
-          function_name,
-          class_name,
-          start_line,
-          end_line,
-          content,
-          content_hash,
-          language,
-          file_size,
-          imports,
-          exports,
-          1 - (embedding <=> ${vectorStr}::vector) as similarity
-        FROM code_embeddings
-        WHERE embedding IS NOT NULL
-          ${this.repoOwner ? sql`AND repo_owner = ${this.repoOwner}` : sql``}
-          ${this.repoName ? sql`AND repo_name = ${this.repoName}` : sql``}
-          ${includeTypes?.length ? sql`AND chunk_type = ANY(${includeTypes})` : sql``}
-          ${excludeTypes?.length ? sql`AND chunk_type != ALL(${excludeTypes})` : sql``}
-          ${fileContext?.length ? sql`AND file_path = ANY(${fileContext})` : sql``}
-        ORDER BY embedding <=> ${vectorStr}::vector
-        LIMIT ${maxResults}
-      `);
+    const results = await db.execute(sql`
+      SELECT 
+        file_path, chunk_type, function_name, class_name,
+        start_line, end_line, content, content_hash, language,
+        1 - (embedding <=> ${vectorStr}::vector) as similarity
+      FROM code_embeddings
+      WHERE embedding IS NOT NULL
+        ${this.repoOwner ? sql`AND repo_owner = ${this.repoOwner}` : sql``}
+        ${this.repoName ? sql`AND repo_name = ${this.repoName}` : sql``}
+        ${includeTypes?.length ? sql`AND chunk_type = ANY(${includeTypes})` : sql``}
+        ${excludeTypes?.length ? sql`AND chunk_type != ALL(${excludeTypes})` : sql``}
+        ${fileContext?.length ? sql`AND file_path = ANY(${fileContext})` : sql``}
+      ORDER BY embedding <=> ${vectorStr}::vector
+      LIMIT ${maxResults}
+    `);
 
-      // Transform results to SemanticSearchResult format
-      const searchResults: SemanticSearchResult[] = [];
-      
-      for (const row of results.rows as any[]) {
-        const similarity = parseFloat(row.similarity);
-        
-        if (similarity < minSimilarity) continue;
+    const searchResults: SemanticSearchResult[] = [];
+    
+    for (const row of results.rows as any[]) {
+      const similarity = parseFloat(row.similarity);
+      if (similarity < minSimilarity) continue;
 
-        const chunk: EmbeddedChunk = {
-          id: `${row.file_path}:${row.chunk_type}:${row.start_line}`,
-          filePath: row.file_path,
-          type: row.chunk_type as CodeChunk["type"],
-          functionName: row.function_name,
-          className: row.class_name,
-          startLine: row.start_line,
-          endLine: row.end_line,
-          content: row.content,
-          embedding: [], // Don't include embedding in results to save memory
-          hash: row.content_hash,
-          lastUpdated: new Date(),
-          imports: row.imports ? JSON.parse(row.imports) : undefined,
-          exports: row.exports ? JSON.parse(row.exports) : undefined,
-          metadata: {
-            language: row.language || "unknown",
-            size: row.file_size || 0,
-          },
-        };
+      const chunk: EmbeddedChunk = {
+        id: `${row.file_path}:${row.chunk_type}:${row.start_line}`,
+        filePath: row.file_path,
+        type: row.chunk_type as CodeChunk["type"],
+        functionName: row.function_name,
+        className: row.class_name,
+        startLine: row.start_line,
+        endLine: row.end_line,
+        content: row.content,
+        embedding: [],
+        hash: row.content_hash,
+        lastUpdated: new Date(),
+        metadata: { language: row.language || "unknown", size: 0 },
+      };
 
-        searchResults.push({
-          chunk,
-          similarity,
-          relevanceScore: this.calculateRelevanceScore(similarity, chunk),
-          contextType: this.determineContextType(chunk),
-        });
-      }
-
-      return searchResults;
-    } catch (error) {
-      throw error;
+      searchResults.push({
+        chunk,
+        similarity,
+        relevanceScore: this.calculateRelevanceScore(similarity, chunk),
+        contextType: this.determineContextType(chunk),
+      });
     }
+
+    return searchResults;
   }
 
   /**

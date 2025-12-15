@@ -307,18 +307,13 @@ export class VectorEmbeddingService {
     };
   }
 
-  /**
-   * Intelligent code chunking using AST analysis
-   */
+  // Split code into semantic chunks (functions, classes, modules)
   async chunkCode(filePath: string, content: string): Promise<CodeChunk[]> {
     const chunks: CodeChunk[] = [];
     const language = this.getLanguageFromPath(filePath);
     
     try {
-      // For now, implement simple chunking - can be enhanced with AST parsing
       const lines = content.split('\n');
-      
-      // Detect functions, classes, and modules
       const functionRegex = /^\s*(export\s+)?(async\s+)?function\s+(\w+)|^\s*(\w+)\s*[:=]\s*(async\s+)?\(/;
       const classRegex = /^\s*(export\s+)?class\s+(\w+)/;
       const importRegex = /^import\s+.*from\s+['"]([^'"]+)['"]/;
@@ -331,26 +326,16 @@ export class VectorEmbeddingService {
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         
-        // Track imports and exports
         const importMatch = line.match(importRegex);
-        if (importMatch) {
-          imports.push(importMatch[1]);
-        }
+        if (importMatch) imports.push(importMatch[1]);
+        if (exportRegex.test(line)) exports.push(line.trim());
         
-        if (exportRegex.test(line)) {
-          exports.push(line.trim());
-        }
-        
-        // Detect function start
         const functionMatch = line.match(functionRegex);
         if (functionMatch) {
-          // Save previous chunk if exists
           if (currentChunk) {
-            // Set endLine to current line - 1 (previous chunk ends before this line)
             currentChunk.endLine = currentChunk.endLine || i;
             chunks.push(this.finalizeChunk(currentChunk, filePath, language, imports, exports));
           }
-          
           currentChunk = {
             type: 'function',
             functionName: functionMatch[3] || functionMatch[4],
@@ -360,16 +345,12 @@ export class VectorEmbeddingService {
           continue;
         }
         
-        // Detect class start
         const classMatch = line.match(classRegex);
         if (classMatch) {
-          // Save previous chunk if exists
           if (currentChunk) {
-            // Set endLine to current line - 1 (previous chunk ends before this line)
             currentChunk.endLine = currentChunk.endLine || i;
             chunks.push(this.finalizeChunk(currentChunk, filePath, language, imports, exports));
           }
-          
           currentChunk = {
             type: 'class',
             className: classMatch[2],
@@ -379,11 +360,8 @@ export class VectorEmbeddingService {
           continue;
         }
         
-        // Add line to current chunk
         if (currentChunk) {
           currentChunk.content += line + '\n';
-          
-          // Check if chunk is complete (simple heuristic)
           if (this.isChunkComplete(line, currentChunk.type!)) {
             currentChunk.endLine = i + 1;
             chunks.push(this.finalizeChunk(currentChunk, filePath, language, imports, exports));
@@ -392,13 +370,11 @@ export class VectorEmbeddingService {
         }
       }
       
-      // Finalize last chunk
       if (currentChunk) {
         currentChunk.endLine = lines.length;
         chunks.push(this.finalizeChunk(currentChunk, filePath, language, imports, exports));
       }
       
-      // If no specific chunks found, create a module-level chunk
       if (chunks.length === 0) {
         chunks.push({
           id: this.generateChunkId(filePath, 'module', 1),
@@ -409,17 +385,11 @@ export class VectorEmbeddingService {
           endLine: lines.length,
           imports,
           exports,
-          metadata: {
-            language,
-            size: content.length,
-            dependencies: imports
-          }
+          metadata: { language, size: content.length, dependencies: imports }
         });
       }
       
     } catch (error) {
-      console.warn(`Failed to chunk ${filePath}:`, error);
-      // Fallback to simple chunking
       chunks.push({
         id: this.generateChunkId(filePath, 'module', 1),
         content,

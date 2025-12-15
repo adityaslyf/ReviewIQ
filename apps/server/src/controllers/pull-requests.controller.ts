@@ -631,7 +631,7 @@ export async function analyzePR(req: Request, res: Response) {
         );
       }
 
-      // RAG: Retrieve relevant context from vector database
+      // RAG: Retrieve relevant code context from vector database
       let ragContext = null;
       if (geminiApiKey) {
         try {
@@ -639,33 +639,15 @@ export async function analyzePR(req: Request, res: Response) {
           const embeddingCount = await pgService.getEmbeddingCount();
           
           if (embeddingCount > 0) {
-            // Phase 3: Incremental update - update embeddings for changed files
-            const changedFilesWithStatus = prData.files.map(f => ({
-              filename: f.filename,
-              status: f.status || "modified",
-              patch: f.patch,
-            }));
-            
-            // Run incremental update in background (non-blocking)
-            updateEmbeddingsForChangedFiles(
-              owner,
-              repo,
-              changedFilesWithStatus,
-              installationId,
-              geminiApiKey
-            ).catch(() => {});
-            
             const vectorService = getVectorEmbeddingService(geminiApiKey, {
               storageMode: "postgres",
               repoOwner: owner,
               repoName: repo,
             });
             
-            // Build search query from PR title, description, and changed files
+            // Build query from PR context and find similar code
             const searchQuery = `${prData.pr.title} ${prData.pr.body || ""} ${prData.files.map(f => f.filename).join(" ")}`;
             const queryEmbedding = await vectorService.generateQueryEmbedding(searchQuery);
-            
-            // Search for relevant code context
             const relevantContext = await pgService.semanticSearch(queryEmbedding, {
               maxResults: 15,
               minSimilarity: 0.25,
@@ -677,32 +659,27 @@ export async function analyzePR(req: Request, res: Response) {
                   filePath: r.chunk.filePath,
                   type: r.chunk.type,
                   functionName: r.chunk.functionName,
-                  className: r.chunk.className,
                   content: r.chunk.content,
                   similarity: r.similarity,
-                  lines: `${r.chunk.startLine}-${r.chunk.endLine}`,
                 })),
                 summary: {
                   totalChunks: relevantContext.length,
                   avgSimilarity: relevantContext.reduce((sum, r) => sum + r.similarity, 0) / relevantContext.length,
-                  filesCovered: [...new Set(relevantContext.map(r => r.chunk.filePath))].length,
                 },
               };
             }
+            
+            // Update embeddings for changed files in background
+            updateEmbeddingsForChangedFiles(owner, repo, prData.files.map(f => ({
+              filename: f.filename, status: f.status || "modified", patch: f.patch,
+            })), installationId, geminiApiKey).catch(() => {});
           } else {
-            // Auto-index for first-time repos (non-blocking)
             triggerBackgroundIndexing(owner, repo, installationId, geminiApiKey).catch(() => {});
           }
-        } catch (error) {
-          // Continue without RAG context
-        }
+        } catch (error) {}
       }
 
-      // Merge RAG context with existing enhanced context
-      const enhancedContext = {
-        ...(prData as any).enhancedContext,
-        ragContext,
-      };
+      const enhancedContext = { ...(prData as any).enhancedContext, ragContext };
 
       const analysisResult = await geminiService.analyzePullRequest(
         prData.pr.title,
