@@ -226,6 +226,69 @@ export async function searchCodeContext(req: Request, res: Response) {
 }
 
 /**
+ * Hybrid search combining vector similarity and keyword matching
+ * GET /repos/:owner/:repo/hybrid-search?query=...&keywords=...&maxResults=...&minSimilarity=...
+ */
+export async function hybridSearchVectors(req: Request, res: Response) {
+  try {
+    const { owner, repo } = req.params;
+    const { query, keywords, maxResults = 20, minSimilarity = 0.2, changedFiles } = req.query;
+
+    if (!query) {
+      return res.status(400).json({ error: "query is required" });
+    }
+
+    const geminiApiKey = process.env.GEMINI_API_KEY;
+    if (!geminiApiKey) {
+      return res.status(500).json({ error: "GEMINI_API_KEY not configured" });
+    }
+
+    const vectorService = getVectorEmbeddingService(geminiApiKey, {
+      storageMode: "postgres",
+      repoOwner: owner,
+      repoName: repo,
+    });
+
+    const queryEmbedding = await vectorService.generateQueryEmbedding(query as string);
+
+    const keywordList = keywords 
+      ? (typeof keywords === 'string' ? keywords.split(',') : keywords as string[])
+      : (query as string).split(/\s+/).filter(k => k.length > 3);
+
+    const changedFileList = changedFiles
+      ? (typeof changedFiles === 'string' ? changedFiles.split(',') : changedFiles as string[])
+      : [];
+
+    const pgService = getPgVectorService(owner, repo);
+    const results = await pgService.hybridSearch(queryEmbedding, keywordList, {
+      maxResults: parseInt(maxResults as string),
+      minSimilarity: parseFloat(minSimilarity as string),
+      changedFiles: changedFileList,
+    });
+
+    res.json({
+      query,
+      keywords: keywordList,
+      resultsCount: results.length,
+      results: results.map((r) => ({
+        filePath: r.chunk.filePath,
+        chunkType: r.chunk.type,
+        functionName: r.chunk.functionName,
+        relevanceScore: r.relevanceScore.toFixed(4),
+        preview: r.chunk.content.substring(0, 200) + "...",
+        lines: `${r.chunk.startLine}-${r.chunk.endLine}`,
+      })),
+    });
+  } catch (error) {
+    console.error("Hybrid search failed:", error);
+    res.status(500).json({
+      error: "Hybrid search failed",
+      details: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+}
+
+/**
  * Get vector service status
  * GET /vector-status
  */

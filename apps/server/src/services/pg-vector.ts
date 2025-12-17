@@ -178,6 +178,127 @@ export class PgVectorService {
     }
   }
 
+  // Hybrid search combining vector similarity + keyword matching
+  async hybridSearch(
+    queryEmbedding: number[],
+    keywords: string[],
+    options: { 
+      maxResults?: number; 
+      minSimilarity?: number; 
+      includeTypes?: string[]; 
+      excludeTypes?: string[]; 
+      fileContext?: string[];
+      changedFiles?: string[];
+    } = {}
+  ): Promise<SemanticSearchResult[]> {
+    const { maxResults = 30, minSimilarity = 0.25, includeTypes, excludeTypes, fileContext, changedFiles } = options;
+
+    const vectorStr = `[${queryEmbedding.join(",")}]`;
+    const keywordPattern = keywords.map(k => k.toLowerCase()).join('|');
+
+    const results = await db.execute(sql`
+      SELECT 
+        file_path, chunk_type, function_name, class_name,
+        start_line, end_line, content, content_hash, language, imports, exports,
+        1 - (embedding <=> ${vectorStr}::vector) as similarity,
+        CASE 
+          WHEN LOWER(content) ~ ${keywordPattern} THEN 1
+          WHEN LOWER(file_path) ~ ${keywordPattern} THEN 0.7
+          WHEN LOWER(function_name) ~ ${keywordPattern} THEN 0.8
+          ELSE 0
+        END as keyword_score
+      FROM code_embeddings
+      WHERE embedding IS NOT NULL
+        ${this.repoOwner ? sql`AND repo_owner = ${this.repoOwner}` : sql``}
+        ${this.repoName ? sql`AND repo_name = ${this.repoName}` : sql``}
+        ${includeTypes?.length ? sql`AND chunk_type = ANY(${includeTypes})` : sql``}
+        ${excludeTypes?.length ? sql`AND chunk_type != ALL(${excludeTypes})` : sql``}
+        ${fileContext?.length ? sql`AND file_path = ANY(${fileContext})` : sql``}
+      ORDER BY (1 - (embedding <=> ${vectorStr}::vector)) * 0.7 + keyword_score * 0.3 DESC
+      LIMIT ${maxResults * 2}
+    `);
+
+    const searchResults: SemanticSearchResult[] = [];
+    
+    for (const row of results.rows as any[]) {
+      const similarity = parseFloat(row.similarity);
+      const keywordScore = parseFloat(row.keyword_score);
+      const hybridScore = similarity * 0.7 + keywordScore * 0.3;
+      
+      if (hybridScore < minSimilarity) continue;
+
+      const chunk: EmbeddedChunk = {
+        id: `${row.file_path}:${row.chunk_type}:${row.start_line}`,
+        filePath: row.file_path,
+        type: row.chunk_type as CodeChunk["type"],
+        functionName: row.function_name,
+        className: row.class_name,
+        startLine: row.start_line,
+        endLine: row.end_line,
+        content: row.content,
+        embedding: [],
+        hash: row.content_hash,
+        lastUpdated: new Date(),
+        imports: row.imports ? JSON.parse(row.imports) : undefined,
+        exports: row.exports ? JSON.parse(row.exports) : undefined,
+        metadata: { language: row.language || "unknown", size: row.content.length },
+      };
+
+      searchResults.push({
+        chunk,
+        similarity: hybridScore,
+        relevanceScore: hybridScore,
+        contextType: this.determineContextType(chunk),
+      });
+    }
+
+    return this.rerankResults(searchResults, changedFiles || [], maxResults);
+  }
+
+  // Rerank results based on file proximity, dependencies, and code relationships
+  private rerankResults(
+    results: SemanticSearchResult[],
+    changedFiles: string[],
+    maxResults: number
+  ): SemanticSearchResult[] {
+    const reranked = results.map(result => {
+      let bonusScore = 0;
+
+      // Boost chunks from changed files
+      if (changedFiles.some(cf => result.chunk.filePath.includes(cf))) {
+        bonusScore += 0.15;
+      }
+
+      // Boost chunks that import/export from changed files
+      const hasRelatedImports = changedFiles.some(cf => {
+        const imports = result.chunk.imports || [];
+        return imports.some(imp => cf.includes(imp) || imp.includes(cf));
+      });
+      if (hasRelatedImports) bonusScore += 0.1;
+
+      // Boost chunks in same directory as changed files
+      const changedDirs = changedFiles.map(f => f.split('/').slice(0, -1).join('/'));
+      const chunkDir = result.chunk.filePath.split('/').slice(0, -1).join('/');
+      if (changedDirs.some(dir => chunkDir === dir)) {
+        bonusScore += 0.08;
+      }
+
+      // Boost function/class chunks over module chunks
+      if (result.chunk.type === 'function' || result.chunk.type === 'class') {
+        bonusScore += 0.05;
+      }
+
+      return {
+        ...result,
+        relevanceScore: Math.min(1.0, result.relevanceScore + bonusScore),
+      };
+    });
+
+    return reranked
+      .sort((a, b) => b.relevanceScore - a.relevanceScore)
+      .slice(0, maxResults);
+  }
+
   // Find similar code chunks using vector similarity search (cosine distance)
   async semanticSearch(
     queryEmbedding: number[],
@@ -286,6 +407,33 @@ export class PgVectorService {
       ${this.repoOwner && this.repoName ? sql`AND repo_name = ${this.repoName}` : sql``}
     `);
     return parseInt((result.rows[0] as any).count) || 0;
+  }
+
+  // Calculate optimal number of chunks to retrieve based on PR complexity
+  calculateDynamicContextWindow(prData: {
+    filesChanged: number;
+    totalChanges: number;
+    description?: string;
+  }): number {
+    const { filesChanged, totalChanges, description } = prData;
+    
+    let contextSize = 10; // Base size
+
+    // Increase based on number of files changed
+    if (filesChanged > 10) contextSize += 10;
+    else if (filesChanged > 5) contextSize += 5;
+    else if (filesChanged > 2) contextSize += 3;
+
+    // Increase based on total lines changed
+    if (totalChanges > 500) contextSize += 8;
+    else if (totalChanges > 200) contextSize += 5;
+    else if (totalChanges > 50) contextSize += 2;
+
+    // Increase if PR has detailed description
+    if (description && description.length > 200) contextSize += 3;
+
+    // Cap at reasonable limits
+    return Math.min(Math.max(contextSize, 5), 30);
   }
 
   /**

@@ -631,7 +631,7 @@ export async function analyzePR(req: Request, res: Response) {
         );
       }
 
-      // RAG: Retrieve relevant code context from vector database
+      // Phase 4: Enhanced RAG with hybrid search and dynamic context
       let ragContext = null;
       if (geminiApiKey) {
         try {
@@ -645,13 +645,34 @@ export async function analyzePR(req: Request, res: Response) {
               repoName: repo,
             });
             
-            // Build query from PR context and find similar code
+            // Calculate optimal context window based on PR complexity
+            const totalChanges = prData.files.reduce((sum, f) => sum + f.additions + f.deletions, 0);
+            const dynamicContextSize = pgService.calculateDynamicContextWindow({
+              filesChanged: prData.files.length,
+              totalChanges,
+              description: prData.pr.body || undefined,
+            });
+            
+            // Extract keywords from PR title and description for hybrid search
+            const keywords = [
+              ...prData.pr.title.split(/\s+/),
+              ...(prData.pr.body || "").split(/\s+/).slice(0, 10),
+              ...prData.files.map(f => f.filename.split('/').pop()?.replace(/\.(ts|js|tsx|jsx|py|go)$/, '')).filter(Boolean),
+            ].filter((k): k is string => typeof k === 'string' && k.length > 3);
+            
             const searchQuery = `${prData.pr.title} ${prData.pr.body || ""} ${prData.files.map(f => f.filename).join(" ")}`;
             const queryEmbedding = await vectorService.generateQueryEmbedding(searchQuery);
-            const relevantContext = await pgService.semanticSearch(queryEmbedding, {
-              maxResults: 15,
-              minSimilarity: 0.25,
-            });
+            
+            // Use hybrid search with reranking
+            const relevantContext = await pgService.hybridSearch(
+              queryEmbedding,
+              keywords,
+              {
+                maxResults: dynamicContextSize,
+                minSimilarity: 0.2,
+                changedFiles: prData.files.map(f => f.filename),
+              }
+            );
             
             if (relevantContext.length > 0) {
               ragContext = {
@@ -660,16 +681,16 @@ export async function analyzePR(req: Request, res: Response) {
                   type: r.chunk.type,
                   functionName: r.chunk.functionName,
                   content: r.chunk.content,
-                  similarity: r.similarity,
+                  relevanceScore: r.relevanceScore,
                 })),
                 summary: {
                   totalChunks: relevantContext.length,
-                  avgSimilarity: relevantContext.reduce((sum, r) => sum + r.similarity, 0) / relevantContext.length,
+                  avgRelevance: relevantContext.reduce((sum, r) => sum + r.relevanceScore, 0) / relevantContext.length,
+                  contextSize: dynamicContextSize,
                 },
               };
             }
             
-            // Update embeddings for changed files in background
             updateEmbeddingsForChangedFiles(owner, repo, prData.files.map(f => ({
               filename: f.filename, status: f.status || "modified", patch: f.patch,
             })), installationId, geminiApiKey).catch(() => {});

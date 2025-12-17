@@ -6,6 +6,7 @@ import {
   testSandbox,
   indexRepository,
   searchCodeContext,
+  hybridSearchVectors,
 } from "../controllers";
 
 const router: RouterType = Router();
@@ -33,6 +34,12 @@ router.post("/index-repo", indexRepository);
  * POST /vector/search
  */
 router.post("/search", searchCodeContext);
+
+/**
+ * Hybrid search with keyword matching
+ * GET /vector/repos/:owner/:repo/hybrid-search
+ */
+router.get("/repos/:owner/:repo/hybrid-search", hybridSearchVectors);
 
 /**
  * Test sandbox validation

@@ -22,5 +22,6 @@ export {
   testSandbox,
   indexRepository,
   searchCodeContext,
+  hybridSearchVectors,
 } from "./vector.controller";
 
