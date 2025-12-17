@@ -110,7 +110,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = () => {
     // GitHub OAuth configuration
     const clientId = import.meta.env.VITE_GITHUB_OAUTH_CLIENT_ID;
-    const redirectUri = `${window.location.origin}/auth/callback`;
+    const redirectUri = import.meta.env.VITE_OAUTH_REDIRECT_URI || '';
     const scope = 'user:email,repo';
     
     if (!clientId) {

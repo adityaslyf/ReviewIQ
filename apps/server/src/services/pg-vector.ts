@@ -1,0 +1,564 @@
+import { db, schema } from "../db";
+import { eq, and, sql, inArray } from "drizzle-orm";
+import type { EmbeddedChunk, CodeChunk, SemanticSearchResult, VectorSearchQuery } from "./vector-embedding";
+
+/**
+ * PostgreSQL Vector Service using pgvector
+ * Provides persistent vector storage with similarity search
+ */
+export class PgVectorService {
+  private repoOwner?: string;
+  private repoName?: string;
+
+  constructor(repoOwner?: string, repoName?: string) {
+    this.repoOwner = repoOwner;
+    this.repoName = repoName;
+  }
+
+  /**
+   * Enable pgvector extension (run once per database)
+   */
+  async enableExtension(): Promise<void> {
+    try {
+      await db.execute(sql`CREATE EXTENSION IF NOT EXISTS vector`);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Store an embedded chunk in the database
+   */
+  async storeChunk(chunk: EmbeddedChunk): Promise<void> {
+    try {
+      // Ensure required fields are never null
+      const startLine = chunk.startLine || 1;
+      const endLine = chunk.endLine || startLine;
+      const content = chunk.content || '';
+      
+      // Check if chunk already exists (by file path, start line, and chunk type)
+      const existing = await db
+        .select({ id: schema.codeEmbeddings.id })
+        .from(schema.codeEmbeddings)
+        .where(
+          and(
+            eq(schema.codeEmbeddings.filePath, chunk.filePath),
+            eq(schema.codeEmbeddings.startLine, startLine),
+            eq(schema.codeEmbeddings.chunkType, chunk.type)
+          )
+        )
+        .limit(1);
+
+      if (existing.length > 0) {
+        // Update existing chunk
+        await db
+          .update(schema.codeEmbeddings)
+          .set({
+            content: content,
+            embedding: chunk.embedding,
+            contentHash: chunk.hash,
+            endLine: endLine,
+            functionName: chunk.functionName,
+            className: chunk.className,
+            language: chunk.metadata?.language,
+            fileSize: chunk.metadata?.size,
+            imports: chunk.imports ? JSON.stringify(chunk.imports) : null,
+            exports: chunk.exports ? JSON.stringify(chunk.exports) : null,
+            repoOwner: this.repoOwner,
+            repoName: this.repoName,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.codeEmbeddings.id, existing[0].id));
+      } else {
+        // Insert new chunk
+        await db.insert(schema.codeEmbeddings).values({
+          filePath: chunk.filePath,
+          chunkType: chunk.type,
+          functionName: chunk.functionName,
+          className: chunk.className,
+          startLine: startLine,
+          endLine: endLine,
+          content: content,
+          embedding: chunk.embedding,
+          contentHash: chunk.hash,
+          language: chunk.metadata?.language,
+          fileSize: chunk.metadata?.size,
+          imports: chunk.imports ? JSON.stringify(chunk.imports) : null,
+          exports: chunk.exports ? JSON.stringify(chunk.exports) : null,
+          repoOwner: this.repoOwner,
+          repoName: this.repoName,
+        });
+      }
+    } catch (error) {
+      // Don't throw - continue with other chunks
+    }
+  }
+
+  /**
+   * Store multiple chunks in batch
+   */
+  async storeChunks(chunks: EmbeddedChunk[]): Promise<void> {
+    // Process in batches of 100 for better performance
+    const batchSize = 100;
+    for (let i = 0; i < chunks.length; i += batchSize) {
+      const batch = chunks.slice(i, i + batchSize);
+      await Promise.all(batch.map((chunk) => this.storeChunk(chunk)));
+    }
+  }
+
+  /**
+   * Delete embeddings for a specific file path
+   * Used for incremental updates when files change
+   */
+  async deleteByFilePath(filePath: string): Promise<number> {
+    try {
+      const conditions = [eq(schema.codeEmbeddings.filePath, filePath)];
+      
+      if (this.repoOwner && this.repoName) {
+        conditions.push(eq(schema.codeEmbeddings.repoOwner, this.repoOwner));
+        conditions.push(eq(schema.codeEmbeddings.repoName, this.repoName));
+      }
+      
+      const result = await db
+        .delete(schema.codeEmbeddings)
+        .where(and(...conditions));
+      
+      return result.rowCount || 0;
+    } catch (error) {
+      return 0;
+    }
+  }
+
+  /**
+   * Delete embeddings for multiple file paths (batch operation)
+   */
+  async deleteByFilePaths(filePaths: string[]): Promise<number> {
+    let totalDeleted = 0;
+    for (const filePath of filePaths) {
+      totalDeleted += await this.deleteByFilePath(filePath);
+    }
+    return totalDeleted;
+  }
+
+  /**
+   * Check if a file has embeddings and if they're up-to-date
+   */
+  async getFileEmbeddingStatus(filePath: string, contentHash?: string): Promise<{
+    exists: boolean;
+    isUpToDate: boolean;
+    chunkCount: number;
+  }> {
+    try {
+      const conditions = [eq(schema.codeEmbeddings.filePath, filePath)];
+      
+      if (this.repoOwner && this.repoName) {
+        conditions.push(eq(schema.codeEmbeddings.repoOwner, this.repoOwner));
+        conditions.push(eq(schema.codeEmbeddings.repoName, this.repoName));
+      }
+      
+      const results = await db
+        .select({
+          contentHash: schema.codeEmbeddings.contentHash,
+        })
+        .from(schema.codeEmbeddings)
+        .where(and(...conditions));
+      
+      if (results.length === 0) {
+        return { exists: false, isUpToDate: false, chunkCount: 0 };
+      }
+      
+      // Check if content hash matches (if provided)
+      const isUpToDate = contentHash 
+        ? results.some(r => r.contentHash === contentHash)
+        : true;
+      
+      return { exists: true, isUpToDate, chunkCount: results.length };
+    } catch (error) {
+      return { exists: false, isUpToDate: false, chunkCount: 0 };
+    }
+  }
+
+  // Hybrid search combining vector similarity + keyword matching
+  async hybridSearch(
+    queryEmbedding: number[],
+    keywords: string[],
+    options: { 
+      maxResults?: number; 
+      minSimilarity?: number; 
+      includeTypes?: string[]; 
+      excludeTypes?: string[]; 
+      fileContext?: string[];
+      changedFiles?: string[];
+    } = {}
+  ): Promise<SemanticSearchResult[]> {
+    const { maxResults = 30, minSimilarity = 0.25, includeTypes, excludeTypes, fileContext, changedFiles } = options;
+
+    const vectorStr = `[${queryEmbedding.join(",")}]`;
+    const keywordPattern = keywords.map(k => k.toLowerCase()).join('|');
+
+    const results = await db.execute(sql`
+      SELECT 
+        file_path, chunk_type, function_name, class_name,
+        start_line, end_line, content, content_hash, language, imports, exports,
+        1 - (embedding <=> ${vectorStr}::vector) as similarity,
+        CASE 
+          WHEN LOWER(content) ~ ${keywordPattern} THEN 1
+          WHEN LOWER(file_path) ~ ${keywordPattern} THEN 0.7
+          WHEN LOWER(function_name) ~ ${keywordPattern} THEN 0.8
+          ELSE 0
+        END as keyword_score
+      FROM code_embeddings
+      WHERE embedding IS NOT NULL
+        ${this.repoOwner ? sql`AND repo_owner = ${this.repoOwner}` : sql``}
+        ${this.repoName ? sql`AND repo_name = ${this.repoName}` : sql``}
+        ${includeTypes?.length ? sql`AND chunk_type = ANY(${includeTypes})` : sql``}
+        ${excludeTypes?.length ? sql`AND chunk_type != ALL(${excludeTypes})` : sql``}
+        ${fileContext?.length ? sql`AND file_path = ANY(${fileContext})` : sql``}
+      ORDER BY (1 - (embedding <=> ${vectorStr}::vector)) * 0.7 + keyword_score * 0.3 DESC
+      LIMIT ${maxResults * 2}
+    `);
+
+    const searchResults: SemanticSearchResult[] = [];
+    
+    for (const row of results.rows as any[]) {
+      const similarity = parseFloat(row.similarity);
+      const keywordScore = parseFloat(row.keyword_score);
+      const hybridScore = similarity * 0.7 + keywordScore * 0.3;
+      
+      if (hybridScore < minSimilarity) continue;
+
+      const chunk: EmbeddedChunk = {
+        id: `${row.file_path}:${row.chunk_type}:${row.start_line}`,
+        filePath: row.file_path,
+        type: row.chunk_type as CodeChunk["type"],
+        functionName: row.function_name,
+        className: row.class_name,
+        startLine: row.start_line,
+        endLine: row.end_line,
+        content: row.content,
+        embedding: [],
+        hash: row.content_hash,
+        lastUpdated: new Date(),
+        imports: row.imports ? JSON.parse(row.imports) : undefined,
+        exports: row.exports ? JSON.parse(row.exports) : undefined,
+        metadata: { language: row.language || "unknown", size: row.content.length },
+      };
+
+      searchResults.push({
+        chunk,
+        similarity: hybridScore,
+        relevanceScore: hybridScore,
+        contextType: this.determineContextType(chunk),
+      });
+    }
+
+    return this.rerankResults(searchResults, changedFiles || [], maxResults);
+  }
+
+  // Rerank results based on file proximity, dependencies, and code relationships
+  private rerankResults(
+    results: SemanticSearchResult[],
+    changedFiles: string[],
+    maxResults: number
+  ): SemanticSearchResult[] {
+    const reranked = results.map(result => {
+      let bonusScore = 0;
+
+      // Boost chunks from changed files
+      if (changedFiles.some(cf => result.chunk.filePath.includes(cf))) {
+        bonusScore += 0.15;
+      }
+
+      // Boost chunks that import/export from changed files
+      const hasRelatedImports = changedFiles.some(cf => {
+        const imports = result.chunk.imports || [];
+        return imports.some(imp => cf.includes(imp) || imp.includes(cf));
+      });
+      if (hasRelatedImports) bonusScore += 0.1;
+
+      // Boost chunks in same directory as changed files
+      const changedDirs = changedFiles.map(f => f.split('/').slice(0, -1).join('/'));
+      const chunkDir = result.chunk.filePath.split('/').slice(0, -1).join('/');
+      if (changedDirs.some(dir => chunkDir === dir)) {
+        bonusScore += 0.08;
+      }
+
+      // Boost function/class chunks over module chunks
+      if (result.chunk.type === 'function' || result.chunk.type === 'class') {
+        bonusScore += 0.05;
+      }
+
+      return {
+        ...result,
+        relevanceScore: Math.min(1.0, result.relevanceScore + bonusScore),
+      };
+    });
+
+    return reranked
+      .sort((a, b) => b.relevanceScore - a.relevanceScore)
+      .slice(0, maxResults);
+  }
+
+  // Find similar code chunks using vector similarity search (cosine distance)
+  async semanticSearch(
+    queryEmbedding: number[],
+    options: { maxResults?: number; minSimilarity?: number; includeTypes?: string[]; excludeTypes?: string[]; fileContext?: string[] } = {}
+  ): Promise<SemanticSearchResult[]> {
+    const { maxResults = 20, minSimilarity = 0.3, includeTypes, excludeTypes, fileContext } = options;
+
+    const vectorStr = `[${queryEmbedding.join(",")}]`;
+
+    const results = await db.execute(sql`
+      SELECT 
+        file_path, chunk_type, function_name, class_name,
+        start_line, end_line, content, content_hash, language,
+        1 - (embedding <=> ${vectorStr}::vector) as similarity
+      FROM code_embeddings
+      WHERE embedding IS NOT NULL
+        ${this.repoOwner ? sql`AND repo_owner = ${this.repoOwner}` : sql``}
+        ${this.repoName ? sql`AND repo_name = ${this.repoName}` : sql``}
+        ${includeTypes?.length ? sql`AND chunk_type = ANY(${includeTypes})` : sql``}
+        ${excludeTypes?.length ? sql`AND chunk_type != ALL(${excludeTypes})` : sql``}
+        ${fileContext?.length ? sql`AND file_path = ANY(${fileContext})` : sql``}
+      ORDER BY embedding <=> ${vectorStr}::vector
+      LIMIT ${maxResults}
+    `);
+
+    const searchResults: SemanticSearchResult[] = [];
+    
+    for (const row of results.rows as any[]) {
+      const similarity = parseFloat(row.similarity);
+      if (similarity < minSimilarity) continue;
+
+      const chunk: EmbeddedChunk = {
+        id: `${row.file_path}:${row.chunk_type}:${row.start_line}`,
+        filePath: row.file_path,
+        type: row.chunk_type as CodeChunk["type"],
+        functionName: row.function_name,
+        className: row.class_name,
+        startLine: row.start_line,
+        endLine: row.end_line,
+        content: row.content,
+        embedding: [],
+        hash: row.content_hash,
+        lastUpdated: new Date(),
+        metadata: { language: row.language || "unknown", size: 0 },
+      };
+
+      searchResults.push({
+        chunk,
+        similarity,
+        relevanceScore: this.calculateRelevanceScore(similarity, chunk),
+        contextType: this.determineContextType(chunk),
+      });
+    }
+
+    return searchResults;
+  }
+
+  /**
+   * Get all chunks for a specific file
+   */
+  async getChunksForFile(filePath: string): Promise<EmbeddedChunk[]> {
+    const results = await db
+      .select()
+      .from(schema.codeEmbeddings)
+      .where(eq(schema.codeEmbeddings.filePath, filePath));
+
+    return results.map((row) => this.rowToEmbeddedChunk(row));
+  }
+
+  /**
+   * Delete all chunks for a specific file (for re-indexing)
+   */
+  async deleteChunksForFile(filePath: string): Promise<void> {
+    await db
+      .delete(schema.codeEmbeddings)
+      .where(eq(schema.codeEmbeddings.filePath, filePath));
+  }
+
+  /**
+   * Delete all chunks for a repository
+   */
+  async deleteAllChunks(): Promise<void> {
+    if (this.repoOwner && this.repoName) {
+      await db
+        .delete(schema.codeEmbeddings)
+        .where(
+          and(
+            eq(schema.codeEmbeddings.repoOwner, this.repoOwner),
+            eq(schema.codeEmbeddings.repoName, this.repoName)
+          )
+        );
+    } else {
+      // Delete all chunks (be careful with this!)
+      await db.delete(schema.codeEmbeddings);
+    }
+  }
+
+  /**
+   * Get total count of embeddings
+   */
+  async getEmbeddingCount(): Promise<number> {
+    const result = await db.execute(sql`
+      SELECT COUNT(*) as count 
+      FROM code_embeddings 
+      ${this.repoOwner ? sql`WHERE repo_owner = ${this.repoOwner}` : sql``}
+      ${this.repoOwner && this.repoName ? sql`AND repo_name = ${this.repoName}` : sql``}
+    `);
+    return parseInt((result.rows[0] as any).count) || 0;
+  }
+
+  // Calculate optimal number of chunks to retrieve based on PR complexity
+  calculateDynamicContextWindow(prData: {
+    filesChanged: number;
+    totalChanges: number;
+    description?: string;
+  }): number {
+    const { filesChanged, totalChanges, description } = prData;
+    
+    let contextSize = 10; // Base size
+
+    // Increase based on number of files changed
+    if (filesChanged > 10) contextSize += 10;
+    else if (filesChanged > 5) contextSize += 5;
+    else if (filesChanged > 2) contextSize += 3;
+
+    // Increase based on total lines changed
+    if (totalChanges > 500) contextSize += 8;
+    else if (totalChanges > 200) contextSize += 5;
+    else if (totalChanges > 50) contextSize += 2;
+
+    // Increase if PR has detailed description
+    if (description && description.length > 200) contextSize += 3;
+
+    // Cap at reasonable limits
+    return Math.min(Math.max(contextSize, 5), 30);
+  }
+
+  /**
+   * Check if a file needs re-indexing based on content hash
+   */
+  async needsReindex(filePath: string, contentHash: string): Promise<boolean> {
+    const existing = await db
+      .select({ contentHash: schema.codeEmbeddings.contentHash })
+      .from(schema.codeEmbeddings)
+      .where(eq(schema.codeEmbeddings.filePath, filePath))
+      .limit(1);
+
+    if (existing.length === 0) return true;
+    return existing[0].contentHash !== contentHash;
+  }
+
+  /**
+   * Get statistics about the vector store
+   */
+  async getStats(): Promise<{
+    totalChunks: number;
+    chunksByType: Record<string, number>;
+    chunksByLanguage: Record<string, number>;
+    totalSize: number;
+  }> {
+    const [countResult, typeResult, langResult, sizeResult] = await Promise.all([
+      this.getEmbeddingCount(),
+      db.execute(sql`
+        SELECT chunk_type, COUNT(*) as count 
+        FROM code_embeddings 
+        GROUP BY chunk_type
+      `),
+      db.execute(sql`
+        SELECT language, COUNT(*) as count 
+        FROM code_embeddings 
+        GROUP BY language
+      `),
+      db.execute(sql`
+        SELECT SUM(file_size) as total_size 
+        FROM code_embeddings
+      `),
+    ]);
+
+    const chunksByType: Record<string, number> = {};
+    for (const row of typeResult.rows as any[]) {
+      chunksByType[row.chunk_type] = parseInt(row.count);
+    }
+
+    const chunksByLanguage: Record<string, number> = {};
+    for (const row of langResult.rows as any[]) {
+      if (row.language) {
+        chunksByLanguage[row.language] = parseInt(row.count);
+      }
+    }
+
+    return {
+      totalChunks: countResult,
+      chunksByType,
+      chunksByLanguage,
+      totalSize: parseInt((sizeResult.rows[0] as any)?.total_size) || 0,
+    };
+  }
+
+  // Helper methods
+
+  private rowToEmbeddedChunk(row: any): EmbeddedChunk {
+    return {
+      id: `${row.filePath}:${row.chunkType}:${row.startLine}`,
+      filePath: row.filePath,
+      type: row.chunkType as CodeChunk["type"],
+      functionName: row.functionName,
+      className: row.className,
+      startLine: row.startLine,
+      endLine: row.endLine,
+      content: row.content,
+      embedding: row.embedding || [],
+      hash: row.contentHash,
+      lastUpdated: row.updatedAt || new Date(),
+      imports: row.imports ? JSON.parse(row.imports) : undefined,
+      exports: row.exports ? JSON.parse(row.exports) : undefined,
+      metadata: {
+        language: row.language || "unknown",
+        size: row.fileSize || 0,
+      },
+    };
+  }
+
+  private calculateRelevanceScore(similarity: number, chunk: EmbeddedChunk): number {
+    let score = similarity;
+
+    // Boost functions and classes
+    if (chunk.type === "function" || chunk.type === "class") {
+      score *= 1.1;
+    }
+
+    // Slight penalty for documentation
+    if (chunk.type === "documentation") {
+      score *= 0.9;
+    }
+
+    // Boost if it has exports (likely important)
+    if (chunk.exports && chunk.exports.length > 0) {
+      score *= 1.05;
+    }
+
+    return Math.min(score, 1.0);
+  }
+
+  private determineContextType(
+    chunk: EmbeddedChunk
+  ): "direct" | "related" | "dependency" | "test" | "documentation" {
+    if (chunk.type === "test") return "test";
+    if (chunk.type === "documentation") return "documentation";
+    if (chunk.filePath.includes("test") || chunk.filePath.includes("spec")) return "test";
+    return "related";
+  }
+}
+
+// Singleton instance
+let pgVectorServiceInstance: PgVectorService | null = null;
+
+export function getPgVectorService(repoOwner?: string, repoName?: string): PgVectorService {
+  if (!pgVectorServiceInstance || (repoOwner && repoName)) {
+    pgVectorServiceInstance = new PgVectorService(repoOwner, repoName);
+  }
+  return pgVectorServiceInstance;
+}
+
