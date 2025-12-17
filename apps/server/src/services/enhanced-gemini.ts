@@ -59,10 +59,9 @@ export class EnhancedGeminiService {
     
     this.genAI = new GoogleGenerativeAI(apiKey);
     
-    // Use environment variables to control models (fallback to latest models)
-    // Available models: "gemini-3-pro-preview", "gemini-2.5-flash", "gemini-2.5-pro"
-    const flashModelName = process.env.GEMINI_FLASH_MODEL || "gemini-2.5-flash";
-    const proModelName = process.env.GEMINI_PRO_MODEL || "gemini-3-pro-preview";
+    // Use Gemini 2.5 Flash for analysis (free tier)
+    const flashModelName = "gemini-2.5-flash";
+    const proModelName = "gemini-2.5-flash";
     
     // Flash model for quick analysis - using free tier model
     this.flashModel = this.genAI.getGenerativeModel({ 

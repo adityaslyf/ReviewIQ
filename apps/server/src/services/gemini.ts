@@ -83,9 +83,8 @@ export class GeminiService {
     }
     
     this.genAI = new GoogleGenerativeAI(apiKey);
-    // Use Gemini for analysis
-    // Available models: "gemini-3-pro-preview", "gemini-2.5-flash", "gemini-2.5-pro"
-    const modelName = process.env.GEMINI_MODEL || "gemini-3-pro-preview";
+    // Use Gemini 2.5 Flash for analysis (free tier)
+    const modelName = "gemini-2.5-flash";
     this.model = this.genAI.getGenerativeModel({ 
       model: modelName,
       generationConfig: {
