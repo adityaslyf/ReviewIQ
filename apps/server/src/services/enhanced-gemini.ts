@@ -294,13 +294,40 @@ You are performing a **COMPREHENSIVE CODE REVIEW** with the following focus area
 4. **Code Examples**: Show specific before/after code improvements
 5. **Prioritize**: Focus on HIGH severity issues that could cause production problems
 
-## RESPONSE FORMAT
+## RESPONSE FORMAT (Strict JSON)
 
-Respond with structured JSON containing detailed, actionable feedback. Each suggestion must include:
-- Specific file and line reference
-- Clear explanation of the problem
-- Concrete solution with code example
-- Reasoning for why the change improves the code
+Return the result in this exact JSON format. CRITICAL: You MUST include actual code snippets in originalCode and suggestedCode:
+
+{
+  "summary": "<2-3 sentence overview of the PR>",
+  "potentialIssues": [
+    {
+      "file": "<filename>",
+      "line": <line_number>,
+      "severity": "HIGH|MEDIUM|LOW",
+      "category": "Security|Performance|Logic|Architecture",
+      "issue": "<detailed explanation of the problem>",
+      "originalCode": "<exact problematic code from the diff>",
+      "suggestedCode": "<corrected/improved code>"
+    }
+  ],
+  "refactorSuggestions": [
+    {
+      "file": "<filename>",
+      "line": <line_number>,
+      "severity": "HIGH|MEDIUM|LOW",
+      "category": "Security|Performance|Logic|Architecture|Style",
+      "suggestion": "<what to improve>",
+      "reasoning": "<why this improves the code>",
+      "originalCode": "<current code that needs refactoring>",
+      "suggestedCode": "<refactored code>"
+    }
+  ],
+  "testRecommendations": [
+    { "file": "<filename>", "suggestion": "<test that should be added>" }
+  ],
+  "finalVerdict": "safe|minor_changes|major_fixes"
+}
 
 Focus on being **constructive** and **educational** - help the developer understand not just what to change, but why it matters.`;
 

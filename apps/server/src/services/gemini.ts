@@ -670,21 +670,40 @@ ${diff}
 
 ---
 ## Output Format (Strict JSON)
-Return the result in this JSON format:
+Return the result in this JSON format. IMPORTANT: Include actual code snippets from the diff in originalCode and suggestedCode fields:
 
 {
   "summary": "<2-3 sentence high-level summary>",
   "potentialIssues": [
-    { "file": "<filename>", "line": <line_number>, "issue": "<detailed issue description>", "severity": "low|medium|high" }
+    { 
+      "file": "<filename>", 
+      "line": <line_number>, 
+      "issue": "<detailed issue description>", 
+      "severity": "low|medium|high",
+      "originalCode": "<actual problematic code from the diff>",
+      "suggestedCode": "<fixed/improved code>"
+    }
   ],
   "refactorSuggestions": [
-    { "file": "<filename>", "line": <line_number>, "suggestion": "<actionable improvement>", "rationale": "<why>" }
+    { 
+      "file": "<filename>", 
+      "line": <line_number>, 
+      "suggestion": "<actionable improvement>", 
+      "rationale": "<why>",
+      "originalCode": "<current code that should be refactored>",
+      "suggestedCode": "<refactored code>"
+    }
   ],
   "testRecommendations": [
     { "file": "<filename>", "suggestion": "<missing test or edge case>" }
   ],
   "bestPractices": [
-    { "file": "<filename>", "suggestion": "<improvement for maintainability or readability>" }
+    { 
+      "file": "<filename>", 
+      "suggestion": "<improvement for maintainability or readability>",
+      "originalCode": "<current code>",
+      "suggestedCode": "<improved code following best practices>"
+    }
   ],
   "finalVerdict": "safe|minor_changes|major_fixes"
 }`;
