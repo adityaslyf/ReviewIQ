@@ -4,8 +4,12 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/auth/:path*",
-      "destination": "https://reviewiq.onrender.com/auth/:path*"
+      "source": "/auth/github",
+      "destination": "https://reviewiq.onrender.com/auth/github"
+    },
+    {
+      "source": "/auth/user",
+      "destination": "https://reviewiq.onrender.com/auth/user"
     },
     {
       "source": "/github/:path*",
