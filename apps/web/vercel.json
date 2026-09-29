@@ -4,6 +4,46 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/auth/:path*",
+      "destination": "https://reviewiq.onrender.com/auth/:path*"
+    },
+    {
+      "source": "/github/:path*",
+      "destination": "https://reviewiq.onrender.com/github/:path*"
+    },
+    {
+      "source": "/pull-requests/:path*",
+      "destination": "https://reviewiq.onrender.com/pull-requests/:path*"
+    },
+    {
+      "source": "/pull-requests-with-ai",
+      "destination": "https://reviewiq.onrender.com/pull-requests-with-ai"
+    },
+    {
+      "source": "/analyze-pr",
+      "destination": "https://reviewiq.onrender.com/analyze-pr"
+    },
+    {
+      "source": "/reanalyze-pr/:path*",
+      "destination": "https://reviewiq.onrender.com/reanalyze-pr/:path*"
+    },
+    {
+      "source": "/vector/:path*",
+      "destination": "https://reviewiq.onrender.com/vector/:path*"
+    },
+    {
+      "source": "/vector-status",
+      "destination": "https://reviewiq.onrender.com/vector-status"
+    },
+    {
+      "source": "/vector-reset",
+      "destination": "https://reviewiq.onrender.com/vector-reset"
+    },
+    {
+      "source": "/test-sandbox",
+      "destination": "https://reviewiq.onrender.com/test-sandbox"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

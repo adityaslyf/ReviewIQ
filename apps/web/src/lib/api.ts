@@ -1,5 +1,13 @@
 // API configuration utility
 export const getApiBaseUrl = (): string => {
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    // Same-origin requests via Vercel rewrites — avoids browser CORS to Render
+    if (host.endsWith(".vercel.app") || host === "reviewiq.xyz" || host === "www.reviewiq.xyz") {
+      return "";
+    }
+  }
+
   // Priority 1: VITE_SERVER_URL (most explicit)
   let baseUrl = import.meta.env.VITE_SERVER_URL;
   

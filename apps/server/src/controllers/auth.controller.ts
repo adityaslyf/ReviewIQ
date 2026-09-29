@@ -35,7 +35,10 @@ export async function getUser(req: Request, res: Response) {
  */
 export async function githubOAuth(req: Request, res: Response) {
   try {
-    const { code } = req.body;
+    const { code, redirect_uri: redirectUri } = req.body as {
+      code?: string;
+      redirect_uri?: string;
+    };
 
     if (!code) {
       return res.status(400).json({ error: "Authorization code is required" });
@@ -62,7 +65,8 @@ export async function githubOAuth(req: Request, res: Response) {
         body: JSON.stringify({
           client_id: process.env.GITHUB_OAUTH_CLIENT_ID,
           client_secret: process.env.GITHUB_OAUTH_CLIENT_SECRET,
-          code: code,
+          code,
+          ...(redirectUri ? { redirect_uri: redirectUri } : {}),
         }),
       }
     );

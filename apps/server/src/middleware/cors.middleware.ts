@@ -8,17 +8,28 @@ export const corsMiddleware = cors({
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
+    const normalizeOrigin = (value: string) => value.trim().replace(/\/$/, "");
+
+    const envOrigins = (process.env.CORS_ORIGIN || "http://localhost:3001")
+      .split(",")
+      .map(normalizeOrigin)
+      .filter(Boolean);
+
     const allowedOrigins = [
-      process.env.CORS_ORIGIN || "http://localhost:3001",
+      ...envOrigins,
       "http://localhost:3000",
       "http://localhost:3001",
       "http://127.0.0.1:3001",
       "http://127.0.0.1:3000",
       "https://reviewiq.xyz",
       "https://www.reviewiq.xyz",
+      "https://review-iq-web.vercel.app",
     ];
 
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    const normalizedOrigin = normalizeOrigin(origin);
+    const isVercelPreview = normalizedOrigin.endsWith(".vercel.app");
+
+    if (allowedOrigins.includes(normalizedOrigin) || isVercelPreview) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));

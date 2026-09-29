@@ -42,9 +42,10 @@ function AuthCallback() {
 
 
         // Exchange code for access token
+        const redirectUri = `${window.location.origin}/auth/callback`;
         const response = await apiCall('/auth/github', {
           method: 'POST',
-          body: JSON.stringify({ code }),
+          body: JSON.stringify({ code, redirect_uri: redirectUri }),
         });
 
         if (!response.ok) {
